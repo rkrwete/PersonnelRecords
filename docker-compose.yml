@@ -1,0 +1,72 @@
+services:
+
+  backend:
+    container_name: backend_pr
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - ./src/backend:/var/www/backend
+    working_dir: /var/www/backend
+    networks:
+      - app_net
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx_pr
+    ports:
+      - "8000:80"
+    volumes:
+      - ./src/backend:/var/www/backend
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    networks:
+      - app_net
+
+  frontend:
+    image: node:24-alpine
+    container_name: frontend_pr
+    working_dir: /var/www/frontend
+    volumes:
+      - ./src/frontend:/var/www/frontend
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+  postgres18:
+    image: postgres:18
+    container_name: postgres18_pr
+    environment:
+      POSTGRES_DB: PR
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+    volumes:
+      - postgres_data:/var/lib/postgresql/18/data
+    networks:
+      - app_net
+    ports:
+      - "5432:5432"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_pr
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - app_net
+    ports:
+      - "8085:80"
+    depends_on:
+      - postgres18
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  app_net:
+    external: true
