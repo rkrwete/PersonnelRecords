@@ -102,14 +102,13 @@
   onMounted(async () => {
     await unitStore.fetchStructure()
     personnel.value = await unitStore.fetchPersonnel()
-    console.log(personnel.value)
   })
 
   function addCategory() {
     if (!newCategory.value) return
 
     structure.value.push({
-      id: 'new_' + Date.now(),
+      id: null,
       name: newCategory.value,
       positions: [],
       _newTitle: '',
@@ -185,7 +184,6 @@
       rankId: 1,
       positionId: pos.id
     })
-    console.log(personnel)
   }
 
   function removePerson(p) {
@@ -208,38 +206,55 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: system-ui;
+    padding: 15px;
   }
 
   .card {
     width: 800px;
     padding: 26px;
-    border-radius: 20px;
-    background: rgba(0,0,0,0.35);
-    backdrop-filter: blur(14px);
-    color: #e6f4ef;
-    box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+    border-radius: 10px;
+    box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
   }
 
   .tabs { display: flex; gap: 10px; }
-  .tab { flex: 1; padding: 8px; border-radius: 10px; background: rgba(255,255,255,0.1); cursor: pointer; }
-  .tab.active { background: #10b981; }
+  .tab {
+    border: none;
+    flex: 1;
+    padding: 8px;
+    border-radius: 10px;
+    transition: background-color 0.5s ease, color 0.5s ease, transform 0.5s ease;
+    box-shadow: 1px 1px 4px 2px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    color: var(--text);
+    background: var(--bg);
+  }
+
+  .tab.active {
+    background: var(--btn);
+  }
+
+  .tab:hover {
+    background: var(--btn-hover);
+    color: var(--text-hover);
+    transform: translateY(-2px);
+  }
 
   .title { text-align: center; font-weight: 700; }
-  .subtitle { text-align: center; font-size: 12px; opacity: 0.6; }
+  .subtitle { text-align: center; font-size: 12px; opacity: 0.8; }
 
   .add-category, .add-position { display: flex; gap: 6px;padding-top: 10px; }
 
   input, select {
     width: 100%;
     padding: 6px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(0,0,0,0.25);
-    color: white;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.2);
+    font-family: "Tektur", sans-serif;
+    color: rgba(255,255,255,0.9);
   }
 
   .table {
@@ -248,7 +263,7 @@
   }
 
   .table th, .table td {
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
     padding: 6px;
   }
 
@@ -259,12 +274,13 @@
 
   .btn {
     padding: 10px;
-    border-radius: 12px;
+    border-radius: 10px;
     border: none;
-    background: #10b981;
-    color: white;
+    background: var(--btn);
+    color: var(--text);
     font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.5s ease, color 0.5s ease, transform 0.5s ease;
   }
 
   .btnmt {
@@ -279,9 +295,17 @@
     padding: 6px 10px;
     border-radius: 10px;
     border: none;
-    background: #3b82f6;
-    color: white;
+    background: var(--btn);
+    color: var(--text);
+    font-weight: 600;
     cursor: pointer;
+    transition: background-color 0.5s ease, color 0.5s ease, transform 0.5s ease;
+  }
+
+  .btn:hover, .btn-small:hover  {
+    background: var(--btn-hover);
+    color: var(--text-hover);
+    transform: translateY(-2px);
   }
 
   .delete {
@@ -290,6 +314,11 @@
     color: #ff5c5c;
     cursor: pointer;
     margin-left: auto;
+    transition: transform 0.5s ease;
+  }
+
+  .delete:hover {
+    transform: translateY(-2px);
   }
 
   .category {

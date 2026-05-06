@@ -1,397 +1,356 @@
 <style scoped>
 .page {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  font-family: system-ui;
+  padding: 15px;
+  gap: 20px;
 }
 
 .title {
   text-align: center;
   font-weight: 700;
+  margin: 10px 0;
+  font-size: 18px;
 }
+
 .subtitle {
   text-align: center;
-  font-size: 12px; opacity: 0.6;
+  font-size: 14px;
+  opacity: 0.8;
+  margin: 0 0 15px 0;
 }
 
-.category-header {
-  margin-bottom: 10px;
-}
-
-input, select {
-  width: 95%;
-  padding: 6px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(0,0,0,0.25);
-  color: white;
+.expense-card {
+  width: 1400px;
+  padding: 26px;
+  border-radius: 10px;
+  box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  margin-top: 10px;
+  table-layout: fixed;
 }
 
 .table th, .table td {
-  border: 1px solid rgba(255,255,255,0.1);
-  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 10px 0;
+  vertical-align: middle;
 }
 
-.expense-card {
-  width: 1200px;
-  padding: 26px;
-  border-radius: 20px;
-  background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(14px);
-  color: #e6f4ef;
-  box-shadow: 0 20px 80px rgba(0,0,0,0.5);
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.table th:nth-of-type(1) { width: 17vw; }
-.table th:nth-of-type(2) { width: 10vw; }
-.table th:nth-of-type(3) { width: 25vw; }
-
-.dropdown {
-  position: absolute;
-  top: 100%;
-  width: 100%;
-  background: #0e2d21;
-  border-radius: 10px;
-  margin-top: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-  z-index: 100;
-}
-
-.select-wrapper {
-  position: relative;
-}
-
-.option {
-  padding: 6px;
-  cursor: pointer;
-}
-
-.option:hover {
-  background: rgba(255,255,255,0.1);
-}
-
-.btn {
-  padding: 10px;
-  border-radius: 12px;
-  border: none;
-  background: #10b981;
-  color: white;
+.table thead th {
+  background: rgba(255, 255, 255, 0.05);
   font-weight: 600;
-  cursor: pointer;
+  text-align: center;
+
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(50px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+  inset 0 -1px 0 rgba(255, 255, 255, 0.08);
 }
 
-.fl {
-  display: flex;
-  flex-direction: column;
+.table td:nth-child(n+3),
+.table th:nth-child(n+3) {
+  text-align: center;
 }
 
-.fl input {
-  width: 99%;
-}
-
-.fl select {
-  width: unset;
+.str-total {
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.2);
+  text-align: center;
 }
 </style>
 
 <template>
   <Header/>
   <div class="page">
-    <div class="expense-card" v-if="userStore.roleId !== 2">
-      <div class="title">Расход личного состава</div>
-      <p class="subtitle">Состояние и примечания</p>
+    <div class="expense-card" v-if="userStore.roleId !== 3">
+      <div class="title">Выбор подразделения</div>
+      <p class="subtitle">Укажите подразделение для работы с личным составом</p>
+      <TreeSelect
+          v-model="selectedUnitId"
+          :options="allUnits"
+      />
+    </div>
+
+    <div class="expense-card" v-if="categories.length">
+      <div class="title">{{ unitName }}</div>
+      <div class="subtitle">Расход личного состава</div>
 
       <table class="table">
+        <colgroup>
+          <col style="width: 70px">
+          <col style="">
+          <col style="width: 70px">
+          <col style="width: 70px">
+          <col style="width: 60px">
+          <col style="width: 50px">
+          <col style="width: 60px">
+          <col style="width: 70px">
+          <col style="width: 50px">
+          <col style="width: 100px">
+          <col style="width: 80px">
+          <col style="width: 80px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 50px">
+        </colgroup>
         <thead>
         <tr>
-          <th>Категория</th>
+          <th>№<br>п/п</th>
+          <th>Подразделение / ФИО</th>
           <th>По штату</th>
           <th>По списку</th>
-          <th>Налицо</th>
-          <th>Наряд</th>
-          <th>Госпиталь</th>
-          <th>Лазарет</th>
-          <th>Увольнение</th>
-          <th>Отпуск</th>
-          <th>Командировка</th>
-          <th>Прочее</th>
+          <th v-for="id in statusOrder" :key="id">
+            {{ statusMapById[id].name }}
+          </th>
         </tr>
         </thead>
         <tbody>
-        <tr v-for="row in summary" :key="row.name">
-          <td><b>{{ row.name }}</b></td>
-          <td>{{ row.shtat }}</td>
-          <td>{{ row.list }}</td>
-          <td>{{ row.present }}</td>
-          <td>{{ row.duty }}</td>
-          <td>{{ row.hospital }}</td>
-          <td>{{ row.lazaret }}</td>
-          <td>{{ row.leave }}</td>
-          <td>{{ row.vacation }}</td>
-          <td>{{ row.trip }}</td>
-          <td>{{ row.other }}</td>
+        <template v-for="(cat, index) in categories" :key="cat.id">
+          <RowUnit
+              :unit="cat"
+              :level="0"
+              :index="String(index + 1)"
+              :expanded="expanded"
+              @toggle="toggle"
+          />
+        </template>
+        <tr class="str-total">
+          <td></td>
+          <td>Итого</td>
+          <td>{{ stats.shtat }}</td>
+          <td>{{ stats.list }}</td>
+          <td v-for="id in statusOrder" :key="id">
+            {{ statusMap[id] || 0 }}
+          </td>
         </tr>
         </tbody>
       </table>
-
-      <div class="title">Список личного состава</div>
-
-      <div v-for="cat in categories" :key="cat.id" class="category">
-        <div class="category-header">
-          <b>{{ cat.name }}</b>
-        </div>
-
-        <table class="table">
-          <thead>
-          <tr>
-            <th>Должность</th>
-            <th>Воинское звание</th>
-            <th>ФИО</th>
-            <th>Состояние</th>
-          </tr>
-          </thead>
-          <tbody>
-          <tr v-for="p in cat.personnel" :key="p.id">
-            <td>{{ p.position.title }}</td>
-            <td>{{ ranks.find(r => r.id === p.rank_id)?.name || '—' }}</td>
-            <td>{{ p.last_name }} {{ p.first_name }} {{ p.middle_name }}</td>
-            <td>
-              <select v-model="p.current_status_id" @change="updateStatus(p)">
-                <option v-for="s in statuses" :value="s.id">
-                  {{ s.name }}
-                </option>
-              </select>
-            </td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div class="expense-card" v-else>
-      <div class="title">Назначение статуса</div>
-      <p class="subtitle">Выбор подразделения и военнослужащего</p>
-      <div>
-        <TreeSelect
-            v-model="selectedCategoryId"
-            :options="units"
-        />
-      </div>
-      <div v-if="selectedCategoryId" class="fl">
-        <label class="title">Военнослужащий</label>
-        <div class="select-wrapper">
-        <input
-            v-model="personSearch"
-            placeholder="Поиск..."
-            @focus="showDropdown = true"
-            @input="showDropdown = true"
-        />
-        <div v-if="showDropdown && filteredPersonnel.length" class="dropdown">
-          <div
-              v-for="p in filteredPersonnel"
-              :key="p.id"
-              class="option"
-              @click="selectPerson(p)"
-          >
-            {{ p.lastName }} {{ p.firstName }} {{ p.middleName }}
-          </div>
-        </div></div>
-      </div>
-      <div v-if="selectedPersonId" class="fl">
-        <label class="title">Статус</label>
-        <select v-model="selectedStatus">
-          <option :value="2">Лазарет</option>
-          <option :value="3">Госпиталь</option>
-        </select>
-      </div>
-      <button @click="assignStatus" v-if="selectedPersonId" class="btn">
-        Назначить
-      </button>
     </div>
   </div>
 </template>
 
 <script setup>
 import Header from "./Header.vue";
-import { ref, onMounted, watch, computed } from 'vue'
+import TreeSelect from "./TreeSelect.vue";
+import RowUnit from "./RowUnit.vue";
+import { ref, onMounted, computed, watch, provide } from 'vue'
 import api from "../services/api.js";
 import { useUserStore } from "../stores/user.js";
 import { ranks } from '../constants/ranks'
-import TreeSelect from "./TreeSelect.vue";
+import { statuses } from "../constants/statuses.js";
 
-const statuses = [
-  { id: 1, name: 'Налицо' },
-  { id: 5, name: 'Наряд' },
-  { id: 9, name: 'Увольнение' },
-  { id: 7, name: 'Прочее' },
-]
-
-const unit = ref(null)
-const categories = ref([])
 const userStore = useUserStore()
-if (userStore.roleId == 3) {
-  onMounted(async () => {
-    const { data } = await api.get(`/api/units/${userStore.unitId}/personnel/grouped`)
-    unit.value = data
-    categories.value = data?.categories || []
-  })
-} else {
-  onMounted(async () => {
-    const { data } = await api.get('/api/units')
+const allUnits = ref([])
+const selectedUnitId = ref(null)
+const unitName = ref('')
+const categories = ref([])
+const expanded = ref(new Set())
 
+const statusOrder = computed(() => statuses.map(s => s.id))
+const statusMapById = computed(() => Object.fromEntries(statuses.map(s => [s.id, s])))
+const rankMap = Object.fromEntries(ranks.map(r => [r.id, r.name]))
+
+function getRank(id) {
+  return rankMap[id] || '—'
+}
+
+const allowedStatuses = computed(() => {
+  if (userStore.roleId === 1) return [1, 2, 5, 6]
+  if (userStore.roleId === 2) return [1, 3, 4]
+  if (userStore.roleId === 3) {
+    const forbidden = [3, 4, 5, 6]
+    return statusOrder.value.filter(id => !forbidden.includes(id))
+  }
+  return statusOrder.value
+})
+
+const lockedRowStatuses = computed(() => {
+  if (userStore.roleId === 3) return [3, 4, 5, 6]
+  return []
+})
+
+async function updateStatus(person, newStatusId) {
+  if (person.current_status_id === newStatusId) return
+
+  const oldStatus = person.current_status_id
+  person.current_status_id = newStatusId
+
+  try {
+    await api.patch(`/api/personnel/${person.id}`, {
+      current_status_id: newStatusId
+    })
+  } catch (e) {
+    person.current_status_id = oldStatus
+    console.error(e)
+  }
+}
+
+provide('statusOrder', statusOrder)
+provide('getRank', getRank)
+provide('countStatusRecursive', countStatusRecursive)
+provide('allowedStatuses', allowedStatuses)
+provide('lockedRowStatuses', lockedRowStatuses)
+provide('updateStatus', updateStatus)
+
+function countStatusRecursive(unit, statusId) {
+  let count = 0
+  if (unit.personnel) {
+    for (const p of unit.personnel) {
+      if (p.current_status_id === statusId) count++
+    }
+  }
+  if (unit.children) {
+    for (const child of unit.children) {
+      count += countStatusRecursive(child, statusId)
+    }
+  }
+  return count
+}
+
+const statusMap = computed(() => {
+  const map = {}
+  function traverse(units) {
+    for (const u of units) {
+      if (u.personnel) {
+        for (const p of u.personnel) {
+          const s = p.current_status_id
+          map[s] = (map[s] || 0) + 1
+        }
+      }
+      if (u.children) traverse(u.children)
+    }
+  }
+  traverse(categories.value)
+  return map
+})
+
+const stats = computed(() => {
+  let shtat = 0
+  let list = 0
+  for (const c of categories.value) {
+    shtat += c.totalShtat ?? c.shtat ?? 0
+    list += c.totalPersonnelCount ?? c.personnel?.length ?? 0
+  }
+  return { shtat, list }
+})
+
+function toggle(id) {
+  if (expanded.value.has(id)) expanded.value.delete(id)
+  else expanded.value.add(id)
+}
+
+onMounted(async () => {
+  if (userStore.roleId == 3) {
+    selectedUnitId.value = userStore.unitId
+    unitName.value = userStore.unitName
+    await fetchUnitData(userStore.unitId)
+  } else if (userStore.roleId == 3 && data.categories) {
+    categories.value = data.categories.map(c => ({
+      id: c.id || Math.random(),
+      name: c.name,
+      shtat: c.shtat,
+      totalShtat: c.shtat,
+      totalPersonnelCount: c.personnel?.length || 0,
+      personnel: c.personnel || [],
+      children: []
+    }))
+  } else {
+    const { data } = await api.get('/api/units')
+    console.log(data)
     function normalize(nodes) {
       return nodes.map(n => ({
         ...n,
         children: n.children ? normalize(n.children) : []
       }))
     }
-
-    units.value = normalize(data.data)
-  })
-}
-
-
-const summary = computed(() => {
-  const statusMap = {
-    1: 'present',
-    2: 'lazaret',
-    3: 'hospital',
-    4: 'vacation',
-    5: 'duty',
-    6: 'trip',
-    9: 'leave',
-    7: 'other',
+    allUnits.value = normalize(data.data)
   }
-
-  const rows = categories.value.map(cat => {
-    const row = {
-          name: cat.name,
-          shtat: cat.shtat,
-          list: cat.personnel?.length || 0,
-          present: 0,
-          duty: 0,
-          hospital: 0,
-          lazaret: 0,
-          leave: 0,
-          vacation: 0,
-          trip: 0,
-          other: 0,
-        }
-
-    ;(cat.personnel || []).forEach(p => {
-      const key = statusMap[p.current_status_id] || 'other'
-      row[key]++
-    })
-
-    return row
-  })
-
-  const total = {
-    name: 'Итого',
-    shtat: 0,
-    list: 0,
-    present: 0,
-    duty: 0,
-    hospital: 0,
-    lazaret: 0,
-    leave: 0,
-    vacation: 0,
-    trip: 0,
-    other: 0,
-  }
-
-  rows.forEach(r => {
-    Object.keys(total).forEach(k => {
-      if (k !== 'name') total[k] += r[k]
-    })
-  })
-
-  return [...rows, total]
 })
 
-async function updateStatus(p) {
-  const old = p.current_status_id
+watch(selectedUnitId, async (id) => {
+  if (id && userStore.roleId != 3) {
+    const findName = (nodes) => {
+      for (let n of nodes) {
+        if (n.id === id) return n.name
+        if (n.children) {
+          let res = findName(n.children)
+          if (res) return res
+        }
+      }
+      return 'Подразделение'
+    }
+    unitName.value = findName(allUnits.value)
+    await fetchUnitData(id)
+  }
+})
 
+async function fetchUnitData(id) {
   try {
-    await api.patch(`/api/personnel/${p.id}`, {
-      current_status_id: p.current_status_id
-    })
+    const { data } = await api.get(`/api/units/${id}/personnel/grouped`)
+    if (data.units && data.units.length) {
+      categories.value = buildStructure(data.units)
+    } else if (data.categories) {
+      categories.value = data.categories.map(c => ({
+        id: c.id || Math.random(),
+        name: c.name,
+        totalShtat: c.shtat,
+        totalPersonnelCount: c.personnel?.length || 0,
+        personnel: c.personnel || [],
+        children: []
+      }))
+    } else {
+      categories.value = []
+    }
   } catch (e) {
-    p.current_status_id = old
     console.error(e)
   }
 }
 
-/////
-const selectedCategoryId = ref('')
-const selectedPersonId = ref('')
-const selectedStatus = ref(2)
-const personSearch = ref('')
-const units = ref([])
-const personnel = ref([])
-const showDropdown = ref(false)
+function buildStructure(data) {
+  return data.map(unit => {
+    const localShtat = Number(unit.shtat) || 0
+    const localPersonnel = extractLocalPersonnel(unit)
+    const children = unit.units ? buildStructure(unit.units) : []
 
-async function assignStatus() {
-  if (!selectedPersonId.value) return
+    let totalShtat = localShtat
+    let totalPersonnelCount = localPersonnel.length
 
-  try {
-    await api.patch(`/api/personnel/${selectedPersonId.value}`, {
-      current_status_id: selectedStatus.value
-    })
-
-    const person = personnel.value.find(
-        p => p.id === selectedPersonId.value
-    )
-
-    if (person) {
-      person.current_status_id = selectedStatus.value
+    for (const child of children) {
+      totalShtat += child.totalShtat
+      totalPersonnelCount += child.totalPersonnelCount
     }
 
-  } catch (e) {
-    console.error(e)
-  }
+    return {
+      id: unit.id,
+      name: unit.name,
+      shtat: localShtat,
+      totalShtat: totalShtat,
+      personnel: localPersonnel,
+      totalPersonnelCount: totalPersonnelCount,
+      children: children
+    }
+  })
 }
 
-watch(selectedCategoryId, async (id) => {
-  if (!id) return
-
-  selectedPersonId.value = ''
-  personnel.value = []
-
-  try {
-    const { data } = await api.get(`/api/units/${id}/personnel`)
-    personnel.value = data.data || data
-    console.log(personnel.value)
-  } catch (e) {
-    console.error(e)
+function extractLocalPersonnel(unit) {
+  let result = []
+  if (Array.isArray(unit.categories)) {
+    for (const c of unit.categories) {
+      if (Array.isArray(c.personnel)) {
+        result.push(...c.personnel)
+      }
+    }
   }
-})
-
-const filteredPersonnel = computed(() => {
-  if (!personSearch.value) return personnel.value
-
-  const q = personSearch.value.toLowerCase()
-
-  return personnel.value.filter(p =>
-      `${p.lastName} ${p.firstName} ${p.middleName || ''}`
-          .toLowerCase()
-          .includes(q)
-  )
-})
-
-function selectPerson(p) {
-  selectedPersonId.value = p.id
-  personSearch.value = `${p.lastName} ${p.firstName} ${p.middleName}`
-  showDropdown.value = false
+  return result
 }
 </script>

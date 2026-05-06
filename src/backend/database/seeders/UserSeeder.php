@@ -16,7 +16,7 @@ class UserSeeder extends Seeder {
         $roleMedic = Role::where('slug', 'medic')->first();
         $roleCmdr  = Role::where('slug', 'commander')->first();
 
-        $unitAcademy = Unit::where('name', 'Военная академия')->first();
+        $unitAcademy = Unit::where('name', 'Военная академия связи')->first();
         $unitDept31  = Unit::where('name', '31 кафедра')->first();
         $unitSciComp = Unit::where('name', 'Научная рота')->first();
 

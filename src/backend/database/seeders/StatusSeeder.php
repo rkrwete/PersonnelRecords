@@ -9,14 +9,16 @@ class StatusSeeder extends Seeder {
     public function run(): void {
         $statuses = [
             ['name' => 'Налицо'],
+            ['name' => 'Наряд'],
             ['name' => 'Лазарет'],
             ['name' => 'Госпиталь'],
-            ['name' => 'В отпуске'],
-            ['name' => 'В наряде'],
-            ['name' => 'В командировке'],
+            ['name' => 'Отпуск'],
+            ['name' => 'Командировка'],
+            ['name' => 'Увольнение'],
+            ['name' => 'Суточное увольнение'],
+            ['name' => 'Арест'],
+            ['name' => 'СОЧ'],
             ['name' => 'Прочее'],
-            ['name' => 'Отсутствует'],
-            ['name' => 'Увольнениие'],
         ];
 
         foreach ($statuses as $status) {

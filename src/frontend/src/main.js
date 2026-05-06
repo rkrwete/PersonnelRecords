@@ -5,7 +5,6 @@ import App from './App.vue'
 import router from './router'
 import {useUserStore} from "./stores/user.js";
 
-
 async function initApp() {
     const app = createApp(App);
     const pinia = createPinia();

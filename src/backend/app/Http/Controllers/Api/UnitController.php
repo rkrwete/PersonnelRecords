@@ -15,7 +15,10 @@ class UnitController extends Controller {
         $tree = $this->buildTree($units, null);
         $result = [];
 
-        $result = $tree->flatMap(fn ($node) => $node['children'])->values();
+        $result = $tree
+            ->flatMap(fn ($node) => $node['children'])
+            ->sortBy('id')
+            ->values();
 
         return response()->json([
             'data' => $result
