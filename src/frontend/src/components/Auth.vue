@@ -2,11 +2,9 @@
   <div class="auth">
     <form class="card" @submit.prevent="handleLogin">
       <div class="title">
-        Электронная строевая записка
+        СИСТЕМА УЧЁТА ЛИЧНОГО СОСТАВА ВОЕННОЙ АКАДЕМИИ СВЯЗИ
       </div>
-
       <p class="subtitle">Вход в систему</p>
-
       <input v-model="form.login" type="text" placeholder="Логин" required/>
       <input v-model="form.password" type="password" placeholder="Пароль" required/>
       <button type="submit" :disabled="loading" class="btn">Войти</button>
@@ -47,82 +45,75 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.auth {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  .auth {
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 
+  .card {
+    width: 360px;
+    padding: 28px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+  }
 
-  font-family: system-ui;
-}
+  .title {
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+  }
 
-.card {
-  width: 360px;
-  padding: 28px;
-  border-radius: 20px;
+  .subtitle {
+    font-size: 12px;
+    opacity: 0.9;
+    text-align: center;
+    margin: 5px 0;
+  }
 
-  background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(12px);
+  input {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.2);
+    outline: none;
+    font-family: "Tektur", sans-serif;
+    color: rgba(255,255,255,0.9);
+  }
 
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  input::placeholder {
+    color: rgba(255,255,255,0.6);
+  }
 
-  color: #e6f4ef;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-}
+  .btn {
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    background: var(--btn);
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.5s ease, color 0.5s ease, transform 0.5s ease;
+  }
 
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  text-align: center;
-}
+  .btn:hover {
+    background: var(--btn-hover);
+    color: var(--text-hover);
+    transform: translateY(-2px);
+  }
 
-.subtitle {
-  font-size: 12px;
-  opacity: 0.8;
-  text-align: center;
-  margin-bottom: 10px;
-}
-
-input {
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.2);
-  background: rgba(0,0,0,0.2);
-  color: white;
-  outline: none;
-}
-
-input::placeholder {
-  color: rgba(255,255,255,0.6);
-}
-
-.btn {
-  margin-top: 8px;
-  padding: 12px;
-  border-radius: 14px;
-  border: none;
-  background: #10b981;
-  color: white;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.btn:hover {
-  background: #059669;
-}
-
-.hint {
-  font-size: 11px;
-  text-align: center;
-  opacity: 0.6;
-  margin-top: 6px;
-}
-form .error {
-  font-size: 12px;
-  color: red;
-}
+  .hint {
+    font-size: 10px;
+    text-align: center;
+    opacity: 0.9;
+  }
+  form .error {
+    font-size: 12px;
+    color: red;
+  }
 </style>

@@ -2,8 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import api from "../services/api.js";
 import { useRouter } from 'vue-router'
-
-
+import { useUserStore } from './user.js'
 
 export const useAuthStore = defineStore('auth', () => {
     const router = useRouter()
@@ -31,12 +30,16 @@ export const useAuthStore = defineStore('auth', () => {
     const logout = () => {
         token.value = null
         user.value = null
-
         localStorage.removeItem('token')
         localStorage.removeItem('user')
-
         delete api.defaults.headers.common['Authorization']
+
+        const userStore = useUserStore()
+        userStore.$dispose()
+
         router.push('/')
+
+        // window.location.href = '/'
     }
 
     return {

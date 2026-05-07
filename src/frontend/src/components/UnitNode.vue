@@ -10,8 +10,12 @@
     >
       {{ node.name }}
     </div>
-
-    <div v-if="open && hasChildren" class="children">
+    <Teleport to="body">
+    <div v-if="open && hasChildren"
+         class="children"
+         :style="dropdownStyle"
+         @mouseenter="onDropdownEnter"
+         @mouseleave="onDropdownLeave">
       <UnitNode
           v-for="c in node.children"
           :key="c.id"
@@ -20,11 +24,15 @@
           @select="$emit('select', $event)"
       />
     </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+const isHoveringNode = ref(false)
+const isHoveringDropdown = ref(false)
+const dropdownStyle = ref({})
 
 defineOptions({
   name: 'UnitNode'
@@ -43,57 +51,80 @@ const hasChildren = computed(() => {
   return props.node.children && props.node.children.length > 0
 })
 
-function toggle() {
-  emit('select', props.node)
-
-  if (hasChildren.value) {
-    open.value = !open.value
-  }
-}
 
 let timeout
 
-function onEnter() {
-  clearTimeout(timeout)
+function onEnter(e) {
+  isHoveringNode.value = true
   if (hasChildren.value) open.value = true
+
+  const rect = e.currentTarget.getBoundingClientRect()
+
+  dropdownStyle.value = {
+    position: 'fixed',
+    top: rect.top + 'px',
+    left: rect.right + 'px'
+  }
+
+  open.value = true
 }
 
 function onLeave() {
+  isHoveringNode.value = false
+  scheduleClose()
+}
+
+function onDropdownEnter() {
+  isHoveringDropdown.value = true
+}
+
+function onDropdownLeave() {
+  isHoveringDropdown.value = false
+  scheduleClose()
+}
+
+function scheduleClose() {
+  clearTimeout(timeout)
   timeout = setTimeout(() => {
-    open.value = false
+    if (!isHoveringNode.value && !isHoveringDropdown.value) {
+      open.value = false
+    }
   }, 150)
 }
 </script>
 
 <style scoped>
-.node {
-  position: relative;
-}
-.unit {
-  position: relative;
-  padding: 10px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: 0.2s;
-  user-select: none;
-}
+  .node {
+    position: relative;
+  }
 
-.unit:hover {
-  background: rgba(255,255,255,0.1);
-}
+  .unit {
+    position: relative;
+    padding: 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.5s ease, color 0.5s ease, transform 0.5s ease;
+  }
 
-.unit.active {
-  background: rgba(255,255,255,0.2);
-}
+  .unit.active {
+    background: var(--btn);
+  }
 
-.children {
-  position: absolute;
-  top: 0;
-  left: 100%;
-  min-width: 220px;
-  background: rgba(0,0,0,0.8);
-  backdrop-filter: blur(14px);
-  border-radius: 12px;
-  z-index: 100;
-}
+  .unit:hover {
+    background: var(--btn-hover);
+    color: var(--text-hover);
+    transform: translateY(-2px);
+  }
+
+  .children {
+    position: absolute;
+    top: 0;
+    left: 100%;
+    min-width: 220px;
+    background: var(--bg);
+    border-radius: 10px;
+    z-index: 100;
+    box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+  }
 </style>

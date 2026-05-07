@@ -1,140 +1,199 @@
 <style scoped>
-.page {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  font-family: system-ui;
-  padding: 20px;
-}
+  .page {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 15px;
+  }
 
-.layout {
-  display: flex;
-  gap: 20px;
-  width: 1400px;
-}
+  .layout {
+    display: flex;
+    gap: 20px;
+    width: 1400px;
+  }
 
-.sidebar {
-  width: 260px;
-  padding: 16px 0;
-  border-radius: 16px;
-  background: rgba(0,0,0,0.35);
-  color: #e6f4ef;
-  height: fit-content;
-  max-height: 80vh;
-  overflow-x: visible;
-}
+  .sidebar {
+    width: 260px;
+    padding: 16px 10px;
+    border-radius: 10px;
+    height: fit-content;
+    max-height: 80vh;
+    overflow-x: visible;
+    overflow-y: auto;
+    box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+    scrollbar-width: none;
+  }
 
-.content {
-  flex: 1;
-}
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
 
-.card {
-  padding: 26px;
-  border-radius: 20px;
-  background: rgba(0,0,0,0.35);
-  backdrop-filter: blur(14px);
-  color: #e6f4ef;
-  box-shadow: 0 20px 80px rgba(0,0,0,0.5);
-}
+  .content {
+    flex: 1;
+  }
 
-.title {
-  text-align: center;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
+  .card {
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+  }
 
-.subtitle {
-  text-align: center;
-  font-size: 12px;
-  opacity: 0.6;
-  margin-bottom: 10px;
-}
+  .header-block {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 
-.tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 14px;
-}
+  .header-text {
+    text-align: center;
+  }
 
-.tab {
-  padding: 8px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  background: rgba(255,255,255,0.08);
-}
+  .header-btn {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: var(--btn);
+    color: var(--text);
+    font-size: 16px;
+    text-decoration: auto;
+    transition: background-color 0.5s ease, color 0.5s ease, transform 0.5s ease;
+    font-family: "Tektur", sans-serif;
+  }
 
-.tab.active {
-  background: rgba(255,255,255,0.2);
-}
+  .header-btn:hover {
+    background: var(--btn-hover);
+    color: var(--text-hover);
+    transform: translateY(calc(-50% - 2px));
+  }
 
-.stats {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-}
+  .title {
+    text-align: center;
+    font-weight: 700;
+    margin: 10px 0;
+    font-size: 18px;
+  }
 
-.stat-card {
-  flex: 1;
-  min-width: 200px;
-  padding: 16px;
-  border-radius: 14px;
-  background: rgba(255,255,255,0.08);
-}
+  .subtitle {
+    text-align: center;
+    font-size: 14px;
+    opacity: 0.8;
+    margin-bottom: 5px;
+  }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-  margin-top: 10px;
-}
+  .tabs {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 10px;
+  }
 
-.table th, .table td {
-  border: 1px solid rgba(255,255,255,0.1);
-  padding: 6px;
-}
+  .tab {
+    padding: 8px 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.5s ease, color 0.5s ease, transform 0.5s ease;
+    box-shadow: 1px 1px 4px 2px rgba(0, 0, 0, 0.3);
+  }
 
-.status-circles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  margin-top: 20px;
-}
+  .tab.active {
+    background: var(--btn);
+  }
 
-.status-circle {
-  width: 100px;
-  text-align: center;
-}
+  .tab:hover {
+    background: var(--btn-hover);
+    color: var(--text-hover);
+    transform: translateY(-2px);
+  }
 
-.circle {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 6px;
+  .stats {
+    display: flex;
+    gap: 0 5vw;
+    flex-wrap: wrap;
+  }
 
-  font-weight: bold;
-  font-size: 16px;
-  color: white;
+  .status-circles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    margin: 20px auto;
+  }
 
-  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-}
+  .status-circle {
+    text-align: center;
+    width: 70px;
+  }
 
-.label {
-  font-size: 11px;
-  opacity: 0.8;
-}
+  .circle {
+    width: 70px;
+    height: 70px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 6px;
+    font-weight: 900;
+    font-size: 30px;
+    color: var(--text-hover);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+  }
+
+  .label {
+    font-size: 10px;
+    margin: auto;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 10px;
+    table-layout: fixed;
+  }
+
+  .table th,
+  .table td {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 0;
+    vertical-align: middle;
+  }
+
+  .table thead th {
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: 600;
+    text-align: center;
+
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(50px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .table td:nth-child(n+3),
+  .table th:nth-child(n+3) {
+    text-align: center;
+  }
+
+  .str-total {
+    font-weight:600;
+    background: rgba(255,255,255,0.2);
+    text-align: center;
+  }
 </style>
 
 <template>
   <HeaderFirst />
-
   <div class="page">
     <div class="layout">
       <div class="sidebar">
         <UnitNode
-            :node="{ id: 1, name: 'Академия' }"
+            :node="{ id: 1, name: 'Военная академия связи' }"
             :selected="selectedUnit"
             @select="selectUnit"
         />
@@ -147,21 +206,23 @@
             @select="selectUnit"
         />
       </div>
-
       <div class="content">
         <div class="card" v-if="selectedUnit">
-          <div class="title">{{ selectedUnit.name }}</div>
-          <div class="subtitle">Состояние личного состава</div>
-
+          <div class="header-block">
+            <div class="header-text">
+              <div class="title">{{ selectedUnit.name }}</div>
+              <div class="subtitle">Состояние личного состава</div>
+            </div>
+            <button class="header-btn">Строевая записка</button>
+          </div>
           <div class="tabs">
             <div class="tab" :class="{ active: tab === 1 }" @click="tab = 1">
-              Карточки
+              Дашборд
             </div>
             <div class="tab" :class="{ active: tab === 2 }" @click="tab = 2">
-              Таблицы
+              Расход
             </div>
           </div>
-
           <div v-if="tab === 1" class="stats">
             <PieChart
                 title="По списку / по штату"
@@ -180,108 +241,79 @@
             <PieChart
                 title="Отсутствующие по категориям"
                 :dataMap="statusOrder.reduce((acc, id) => {
-                const value = statusMap[id] || 0
-                if (value > 0 && id !== 1) {
-                  acc[statuses[id]] = value
-                }
-                return acc
-              }, {})"
+                  const value = statusMap[id] || 0
+                  if (value > 0 && id !== 1) {
+                    acc[statusMapById[id]?.name] = value
+                  }
+                  return acc
+                }, {})"
             />
             <div class="status-circles">
               <div
                   class="status-circle"
-                  v-for="id in statusOrder"
-                  :key="id"
+                  v-for="status in statuses"
+                  :key="status.id"
               >
                 <div
                     class="circle"
-                    :style="{ background: getStatusColor(statuses[id]) }"
+                    :style="{ background: status.color }"
                 >
-                  {{ statusMap[id] || 0 }}
+                  {{ statusMap[status.id] || 0 }}
                 </div>
-
-                <div class="label">
-                  {{ statuses[id] }}
-                </div>
+                <div class="label">{{ status.name }}</div>
               </div>
             </div>
           </div>
           <div v-if="tab === 2">
-            <div class="title">По категориям</div>
+            <div class="title">Расход личного состава</div>
             <table class="table">
               <colgroup>
-                <col style="width: 170px;" />
-                <col style="width: 155px;" />
-                <col style="width: 155px;" />
+                <col style="width: 70px">
+                <col style="">
+                <col style="width: 70px">
+                <col style="width: 70px">
+                <col style="width: 60px">
+                <col style="width: 50px">
+                <col style="width: 60px">
+                <col style="width: 70px">
+                <col style="width: 50px">
+                <col style="width: 100px">
+                <col style="width: 80px">
+                <col style="width: 80px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 50px">
               </colgroup>
               <thead>
-              <tr>
-                <th>Категория</th>
-                <th>По штату</th>
-                <th>По списку</th>
-                <th v-for="id in statusOrder" :key="id">
-                  {{ statuses[id] }}
-                </th>
-              </tr>
+                <tr>
+                  <th>№<br>п/п</th>
+                  <th>Подразделение / ФИО</th>
+                  <th>По штату</th>
+                  <th>По списку</th>
+                  <th v-for="id in statusOrder" :key="id">
+                    {{ statusMapById[id].name }}
+                  </th>
+                </tr>
               </thead>
               <tbody>
-              <tr v-for="c in categories" :key="c.id">
-                <td>{{ c.name }}</td>
-                <td>{{ c.shtat }}</td>
-                <td>{{ c.personnel.length }}</td>
-                <td v-for="id in statusOrder" :key="id">
-                  {{ countStatus(c, id) }}
-                </td>
-              </tr>
-              <tr style="font-weight:700;border-top:2px solid rgba(255,255,255,0.3);">
-                <td>Итого</td>
-                <td>{{ stats.shtat }}</td>
-                <td>{{ stats.list }}</td>
-                <td v-for="id in statusOrder" :key="id">
-                  {{ statusMap[id] || 0 }}
-                </td>
-              </tr>
-              </tbody>
-            </table>
-            <div class="title" style="margin-top:20px;">
-              Личный состав
-            </div>
-            <table class="table">
-              <colgroup>
-                <col style="width: 60px;" />
-                <col style="width: 160px;" />
-                <col style="width: 260px;" />
-              </colgroup>
-              <thead>
-              <tr>
-                <th>№ <br>п/п</th>
-                <th>Воинское звание</th>
-                <th>ФИО</th>
-                <th v-for="id in statusOrder" :key="id">
-                  {{ statuses[id] }}
-                </th>
-              </tr>
-              </thead>
-              <tbody>
-              <template v-for="c in categories" :key="c.id">
-                <!-- Заголовок категории -->
-                <tr style="background: rgba(255,255,255,0.05); font-weight:600;">
-                  <td colspan="100%">
-                    {{ c.name }} ({{ c.personnel.length }})
+                <template v-for="(unit, index) in categories" :key="unit.id">
+                  <RowUnit
+                      :unit="unit"
+                      :level="0"
+                      :index="String(index + 1)"
+                      :expanded="expanded"
+                      @toggle="toggle"
+                  />
+                </template>
+                <tr class="str-total">
+                  <td></td>
+                  <td>Итого</td>
+                  <td>{{ stats.shtat }}</td>
+                  <td>{{ stats.list }}</td>
+                  <td v-for="id in statusOrder" :key="id">
+                    {{ statusMap[id] || 0 }}
                   </td>
                 </tr>
-
-                <!-- Список людей -->
-                <tr v-for="(p, index) in c.personnel" :key="p.id">
-                  <td>{{ index + 1 }}</td>
-                  <td>{{ getRank(p.rank_id) }}</td>
-                  <td>{{ p.last_name }} {{ p.first_name }} {{ p.middle_name }}</td>
-
-                  <td v-for="id in statusOrder" :key="id" style="text-align:center;">
-                    <span v-if="p.current_status_id === id">✔</span>
-                  </td>
-                </tr>
-              </template>
               </tbody>
             </table>
           </div>
@@ -291,30 +323,25 @@
   </div>
 </template>
 <script setup>
-  import { ref, onMounted, computed } from 'vue'
+  import { ref, onMounted, computed, provide } from 'vue'
   import api from '../services/api.js'
   import HeaderFirst from './HeaderFirst.vue'
   import UnitNode from './UnitNode.vue'
   import PieChart from './PieChart.vue'
+  import RowUnit from "./RowUnit.vue";
   import { ranks } from '../constants/ranks'
+  import { statuses } from '../constants/statuses'
 
   const units = ref([])
   const selectedUnit = ref(null)
   const categories = ref([])
   const tab = ref(1)
 
-  const statusOrder = [1, 5, 2, 3, 4, 6, 9, 7]
+  const statusMapById = computed(() => {
+    return Object.fromEntries(statuses.map(s => [s.id, s]))
+  })
 
-  const statuses = {
-    1: 'Налицо',
-    2: 'Лазарет',
-    3: 'Госпиталь',
-    4: 'Отпуск',
-    5: 'Наряд',
-    6: 'Командировка',
-    9: 'Увольнение',
-    7: 'Прочее',
-  }
+  const statusOrder = computed(() => statuses.map(s => s.id))
 
   const rankMap = Object.fromEntries(
       ranks.map(r => [r.id, r.name])
@@ -327,13 +354,17 @@
   const statusMap = computed(() => {
     const map = {}
 
-    for (const c of categories.value) {
-      for (const p of c.personnel) {
-        const s = p.current_status_id
-        map[s] = (map[s] || 0) + 1
+    function traverse(units) {
+      for (const u of units) {
+        for (const p of u.personnel) {
+          const s = p.current_status_id
+          map[s] = (map[s] || 0) + 1
+        }
+        if (u.children) traverse(u.children)
       }
     }
 
+    traverse(categories.value)
     return map
   })
 
@@ -342,8 +373,8 @@
     let list = 0
 
     for (const c of categories.value) {
-      shtat += c.shtat
-      list += c.personnel.length
+      shtat += c.totalShtat
+      list += c.totalPersonnelCount
     }
 
     const present = statusMap.value[1] || 0
@@ -356,28 +387,76 @@
     }
   })
 
-  const flatPersonnel = computed(() =>
-      categories.value.flatMap(c => c.personnel)
-  )
+  function countStatusRecursive(unit, statusId) {
+    let count = 0
+
+    for (const p of unit.personnel) {
+      if (p.current_status_id === statusId) count++
+    }
+
+    for (const child of unit.children) {
+      count += countStatusRecursive(child, statusId)
+    }
+
+    return count
+  }
+
+  function buildStructure(data) {
+    return data.map(item => {
+      const childUnits = item.units && item.units.length ? buildStructure(item.units) : []
+
+      const categoryNodes = (item.categories || []).map(cat => {
+        return {
+          id: `cat_${item.id}_${cat.id}`,
+          name: cat.name,
+          shtat: Number(cat.shtat) || 0,
+          totalShtat: Number(cat.shtat) || 0,
+          personnel: cat.personnel || [],
+          totalPersonnelCount: (cat.personnel || []).length,
+          children: []
+        }
+      })
+
+      const allChildren = [...categoryNodes, ...childUnits]
+
+      let totalShtat = 0
+      let totalPersonnelCount = 0
+
+      for (const child of allChildren) {
+        totalShtat += child.totalShtat
+        totalPersonnelCount += child.totalPersonnelCount
+      }
+
+      return {
+        id: item.id,
+        name: item.name,
+        shtat: Number(item.shtat) || 0,
+        totalShtat: totalShtat,
+        personnel: [],
+        totalPersonnelCount: totalPersonnelCount,
+        children: allChildren
+      }
+    })
+  }
+
+  async function selectUnit(unit) {
+    selectedUnit.value = unit
+    const { data } = await api.get(`/api/units/${unit.id}/personnel/grouped`)
+    const builtTree = buildStructure([data])
+    const rootNode = builtTree[0]
+    categories.value = rootNode && rootNode.children ? rootNode.children : []
+  }
+
+  provide('countStatusRecursive', countStatusRecursive)
 
   onMounted(async () => {
     const { data } = await api.get('/api/units')
     units.value = data.data
+    const academy = { id: 1, name: 'Военная академия связи' }
+    selectedUnit.value = academy
+    await selectUnit(academy)
   })
 
-  async function selectUnit(unit) {
-    selectedUnit.value = unit
-
-    const { data } = await api.get(
-        `/api/units/${unit.id}/personnel/grouped`
-    )
-
-    if (data.units && data.units.length) {
-      categories.value = buildStructure(data.units)
-    } else {
-      categories.value = data.categories || []
-    }
-  }
 
   function countStatus(cat, statusId) {
     let count = 0
@@ -391,76 +470,31 @@
     return count
   }
 
-  function getStatusColor(label) {
-    const map = {
-      'Налицо': '#22c55e',
-      'Лазарет': '#f59e0b',
-      'Госпиталь': '#ef4444',
-      'Отпуск': '#3b82f6',
-      'Наряд': '#a855f7',
-      'Командировка': '#06b6d4',
-      'Увольнение': '#f97316',
-      'Прочее': '#94a3b8',
+  const expanded = ref(new Set())
+
+  function toggle(id) {
+    if (expanded.value.has(id)) {
+      expanded.value.delete(id)
+    } else {
+      expanded.value.add(id)
     }
-    return map[label] || '#888'
   }
 
-  function buildStructure(data) {
-    let res = []
+  provide('statusOrder', statusOrder)
+  provide('getRank', getRank)
+  provide('countStatus', countStatus)
 
-    for (let i = 0; i < data.length; i++) {
-      let shtat = 0
-      let personals = []
+  function extractLocalPersonnel(unit) {
+    let result = []
 
-      if (data[i].units && Array.isArray(data[i].units) && data[i].units.length > 0) {
-        shtat = countShtatUnits(data[i], shtat)
-        personals = getPersonals(data[i])
-      } else {
-        shtat = Number(data[i].shtat) || 0
-        personals = getPersonals(data[i])
-      }
-
-      res.push({
-        id: data[i].id,
-        name: data[i].name,
-        shtat: shtat,
-        personnel: personals,
-      })
-    }
-
-    return res
-  }
-
-  function countShtatUnits(data, countShtat) {
-    countShtat += Number(data.shtat) || 0
-
-    if (data.units && Array.isArray(data.units)) {
-      for (let i = 0; i < data.units.length; i++) {
-        countShtat = countShtatUnits(data.units[i], countShtat)
-      }
-    }
-
-    return countShtat
-  }
-
-  function getPersonals(data) {
-    let personals = []
-
-    if (Array.isArray(data.categories) && data.categories.length > 0) {
-      for (let i = 0; i < data.categories.length; i++) {
-        const personnel = data.categories[i].personnel
-        if (Array.isArray(personnel) && personnel.length > 0) {
-          personals = personals.concat(personnel)
+    if (Array.isArray(unit.categories)) {
+      for (const c of unit.categories) {
+        if (Array.isArray(c.personnel)) {
+          result.push(...c.personnel)
         }
       }
     }
 
-    if (data.units && Array.isArray(data.units) && data.units.length > 0) {
-      for (let i = 0; i < data.units.length; i++) {
-        const childUnit = data.units[i]
-        personals = personals.concat(getPersonals(childUnit))
-      }
-    }
-    return personals
+    return result
   }
 </script>

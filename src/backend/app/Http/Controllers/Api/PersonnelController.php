@@ -70,75 +70,6 @@ class PersonnelController extends Controller {
             return PersonnelResource::collection($result);
         });
     }
-/*
-    public function groupedByCategory($unitId) {
-        if (!is_numeric($unitId)) {
-            return response()->json(['error' => 'Invalid ID'], 400);
-        }
-
-        $stateCounts = DB::table('positions')
-            ->select(
-                'category_id',
-                DB::raw('SUM(count) as shtat')
-            )
-            ->groupBy('category_id');
-
-        $rows = DB::table('personnel')
-            ->select(
-                'personnel.id',
-                'personnel.last_name',
-                'personnel.first_name',
-                'personnel.middle_name',
-                'personnel.rank_id',
-                'personnel.current_status_id',
-                'positions.id as position_id',
-                'positions.title as position_title',
-                'state_categories.id as category_id',
-                'state_categories.name as category_name',
-                'sc.shtat as shtat'
-            )
-            ->leftJoin('positions', 'positions.id', '=', 'personnel.position_id')
-            ->leftJoin('state_categories', 'state_categories.id', '=', 'positions.category_id')
-            ->leftJoinSub($stateCounts, 'sc', function ($join) {
-                $join->on('sc.category_id', '=', 'state_categories.id');
-            })
-            ->where('personnel.unit_id', $unitId)
-
-            ->orderBy('state_categories.id')
-            ->orderByDesc('personnel.rank_id')
-            ->orderBy('personnel.last_name')
-            ->get();
-
-        $grouped = [];
-
-        foreach ($rows as $row) {
-            $catId = $row->category_id;
-
-            if (!isset($grouped[$catId])) {
-                $grouped[$catId] = [
-                    'id' => $catId,
-                    'name' => $row->category_name,
-                    'shtat' => (int) ($row->shtat ?? 0),
-                    'personnel' => [],
-                ];
-            }
-
-            $grouped[$catId]['personnel'][] = [
-                'id' => $row->id,
-                'last_name' => $row->last_name,
-                'first_name' => $row->first_name,
-                'middle_name' => $row->middle_name,
-                'rank_id' => $row->rank_id,
-                'current_status_id' => $row->current_status_id,
-                'position' => [
-                    'id' => $row->position_id,
-                    'title' => $row->position_title,
-                ],
-            ];
-        }
-
-        return response()->json($grouped);
-    }*/
 
     public function groupedByCategory($unitId): JsonResponse {
         if (!is_numeric($unitId)) {
@@ -149,7 +80,6 @@ class PersonnelController extends Controller {
         $unitsData = DB::table('units')->whereIn('id', $allUnitIds)->get()->keyBy('id');
         $allCategories = DB::table('state_categories')->get()->keyBy('id');
 
-        // 1. Получаем ПЕРСОНАЛ и сразу группируем (Unit -> Category)
         $personnelRows = DB::table('personnel')
             ->select('personnel.*', 'positions.title as position_title', 'positions.category_id', 'positions.count as pos_count')
             ->join('positions', 'positions.id', '=', 'personnel.position_id')
@@ -157,14 +87,13 @@ class PersonnelController extends Controller {
             ->orderBy('personnel.rank_id', 'desc')
             ->get();
 
-        $groupedData = []; // Структура: [unit_id][category_id] = ['personnel' => [], 'shtat_sum' => 0]
-        $usedPositions = []; // Чтобы не считать одну и ту же позицию в штатку дважды для одного юнита
+        $groupedData = [];
+        $usedPositions = [];
 
         foreach ($personnelRows as $row) {
             $uId = $row->unit_id;
             $cId = $row->category_id;
 
-            // Добавляем человека
             $groupedData[$uId][$cId]['personnel'][] = [
                 'id' => $row->id,
                 'last_name' => $row->last_name,
@@ -175,7 +104,6 @@ class PersonnelController extends Controller {
                 'position' => ['id' => $row->position_id, 'title' => $row->position_title],
             ];
 
-            // Считаем штатку (только один раз для каждой уникальной позиции в рамках юнита)
             $posKey = "{$uId}_{$cId}_{$row->position_id}";
             if (!isset($usedPositions[$posKey])) {
                 $groupedData[$uId][$cId]['shtat'] = ($groupedData[$uId][$cId]['shtat'] ?? 0) + ($row->pos_count ?? 0);
@@ -183,12 +111,13 @@ class PersonnelController extends Controller {
             }
         }
 
-        // 2. Рекурсивная сборка дерева
         $buildTree = function ($currentId) use (&$buildTree, $unitsData, $groupedData, $allCategories) {
-            $unit = $unitsData[$currentId];
+            if (!isset($unitsData[$currentId])) return null;
 
-            // Рекурсивно собираем детей
+            $unit = $unitsData[$currentId];
             $childUnits = [];
+
+            // Находим прямых потомков
             $directChildren = $unitsData->where('parent_id', $currentId);
             foreach ($directChildren as $child) {
                 $childNode = $buildTree($child->id);
@@ -197,16 +126,10 @@ class PersonnelController extends Controller {
                 }
             }
 
-            // Если в юните нет людей и нет активных детей — скрываем ветку
-            $hasDataInUnit = isset($groupedData[$currentId]);
-            if (!$hasDataInUnit && empty($childUnits)) {
-                return null;
-            }
-
-            // Формируем категории для этого юнита
             $categories = [];
             $totalShtat = 0;
-            if ($hasDataInUnit) {
+
+            if (isset($groupedData[$currentId])) {
                 foreach ($groupedData[$currentId] as $catId => $data) {
                     $categories[] = [
                         'id' => $catId,
@@ -228,16 +151,6 @@ class PersonnelController extends Controller {
         };
 
         $result = $buildTree($unitId);
-
-        if (!$result) {
-            $root = DB::table('units')->where('id', $unitId)->first();
-            return response()->json([
-                'id' => $root->id,
-                'name' => $root->name,
-                'shtat' => 0,
-                'units' => []
-            ]);
-        }
 
         return response()->json($result);
     }
