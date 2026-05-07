@@ -6,6 +6,11 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UnitStructureController;
 use App\Http\Controllers\Api\PersonnelController;
 
+//контроллеры для строевых записок
+use App\Http\Controllers\DutyRoster\DutyRosterExportController;
+use App\Http\Controllers\DutyRoster\AcademicDutyRosterController;
+
+
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test', fn () => ['ok' => true]);
 Route::get('/units', [UnitController::class, 'index']);
@@ -24,3 +29,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::patch('/personnel/{id}', [PersonnelController::class, 'changeStatus']);
 });
+
+// получение строевой записки на подразделение 
+Route::get('/duty-roster/export/{unitId}', [DutyRosterExportController::class, 'export']);
+// получение строевой записки на академию
+Route::get('/academic-duty-roster/export/{unitId?}', [AcademicDutyRosterController::class, 'export']);
