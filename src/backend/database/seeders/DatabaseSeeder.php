@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             StatusSeeder::class,
             UnitSeeder::class,
             UserSeeder::class,
+            ScientificCompanySeeder::class,
         ]);
     }
 }
