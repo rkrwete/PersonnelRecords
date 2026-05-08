@@ -73,6 +73,8 @@
   <Header/>
   <div class="page">
     <div class="expense-card" v-if="userStore.roleId !== 3">
+      <div class="title" v-if="userStore.roleId == 1">Строевой отдел</div>
+      <div class="title" v-if="userStore.roleId == 2">Мед. служба</div>
       <div class="title">Выбор подразделения</div>
       <p class="subtitle">Укажите подразделение для работы с личным составом</p>
       <TreeSelect
@@ -102,6 +104,7 @@
           <col style="width: 40px">
           <col style="width: 40px">
           <col style="width: 50px">
+          <col style="width: 150px">
         </colgroup>
         <thead>
         <tr>
@@ -112,6 +115,7 @@
           <th v-for="id in statusOrder" :key="id">
             {{ statusMapById[id].name }}
           </th>
+          <th>Примечание</th>
         </tr>
         </thead>
         <tbody>
@@ -132,6 +136,7 @@
           <td v-for="id in statusOrder" :key="id">
             {{ statusMap[id] || 0 }}
           </td>
+          <td></td>
         </tr>
         </tbody>
       </table>
@@ -187,7 +192,8 @@ async function updateStatus(person, newStatusId) {
 
   try {
     await api.patch(`/api/personnel/${person.id}`, {
-      current_status_id: newStatusId
+      current_status_id: newStatusId,
+      note: person.note
     })
   } catch (e) {
     person.current_status_id = oldStatus
@@ -195,13 +201,31 @@ async function updateStatus(person, newStatusId) {
   }
 }
 
+async function saveNote(person, newNote) {
+  if (person.note === newNote) return
+
+  const oldNote = person.note
+  person.note = newNote
+
+  try {
+    await api.patch(`/api/personnel/${person.id}`, {
+      current_status_id: person.current_status_id,
+      note: newNote
+    })
+  } catch (e) {
+    person.note = oldNote
+    console.error("Ошибка при сохранении примечания:", e)
+  }
+}
+
+provide('updateStatus', updateStatus)
+provide('saveNote', saveNote)
 provide('statusOrder', statusOrder)
 provide('getRank', getRank)
 provide('countStatusRecursive', countStatusRecursive)
 provide('allowedStatuses', allowedStatuses)
 provide('lockedRowStatuses', lockedRowStatuses)
-provide('updateStatus', updateStatus)
-
+provide('showNoteColumn', true)
 function countStatusRecursive(unit, statusId) {
   let count = 0
   if (unit.personnel) {

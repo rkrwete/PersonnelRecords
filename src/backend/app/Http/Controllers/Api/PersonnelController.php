@@ -101,6 +101,7 @@ class PersonnelController extends Controller {
                 'middle_name' => $row->middle_name,
                 'rank_id' => $row->rank_id,
                 'current_status_id' => $row->current_status_id,
+                'note' => $row->note,
                 'position' => ['id' => $row->position_id, 'title' => $row->position_title],
             ];
 
@@ -173,7 +174,8 @@ class PersonnelController extends Controller {
         $person = Personnel::findOrFail($id);
 
         $person->update([
-            'current_status_id' => $request->current_status_id
+            'current_status_id' => $request->current_status_id,
+            'note' => $request->input('note', '')
         ]);
 
         return response()->json(['success' => true]);

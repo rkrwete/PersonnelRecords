@@ -35,7 +35,7 @@ class AcademicDutyRosterController extends Controller
         if (!$category) {
             return collect();
         }
-        
+
         $positionIds = $category->positions->pluck('id')->toArray();
         return $unit->personnel->filter(fn($p) => in_array($p->position_id, $positionIds));
     }
@@ -74,11 +74,11 @@ class AcademicDutyRosterController extends Controller
     private function collectAllStats(Unit $unit): array
     {
         $stats = $this->collectUnitStats($unit);
-        
+
         foreach ($unit->children as $child) {
             $stats['children'][] = $this->collectAllStats($child);
         }
-        
+
         return $stats;
     }
 
@@ -221,17 +221,17 @@ class AcademicDutyRosterController extends Controller
     private function collectAllAbsentList(array $stats): array
     {
         $absentList = [];
-        
+
         // Добавляем отсутствующих из текущего подразделения
         if (isset($stats['absent_list'])) {
             $absentList = array_merge($absentList, $stats['absent_list']);
         }
-        
+
         // Рекурсивно собираем из дочерних подразделений
         foreach ($stats['children'] as $child) {
             $absentList = array_merge($absentList, $this->collectAllAbsentList($child));
         }
-        
+
         return $absentList;
     }
 
@@ -239,7 +239,7 @@ class AcademicDutyRosterController extends Controller
     {
         try {
             $academy = Unit::with([
-                'personnel.rank', 
+                'personnel.rank',
                 'personnel.currentStatus',
                 'children' => function($q) {
                     $q->orderBy('name');
@@ -303,7 +303,7 @@ class AcademicDutyRosterController extends Controller
                 $sheet->setCellValue($col . '5', 'пост.');
                 $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1) . '5', 'перем.');
                 $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 2) . '5', 'всего');
-                
+
                 // Вертикальная ориентация
                 $this->setVerticalText($sheet, $col . '5');
                 $this->setVerticalText($sheet, \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1) . '5');
@@ -335,7 +335,7 @@ class AcademicDutyRosterController extends Controller
             // Стили
             $lastColIndex = $colIndex;
             $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastColIndex);
-            
+
             $sheet->getStyle('A4:' . $lastCol . $row)->applyFromArray([
                 'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
             ]);
@@ -370,15 +370,9 @@ class AcademicDutyRosterController extends Controller
             $writer = new Xlsx($spreadsheet);
             $writer->save($path);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Академическая строевая записка создана',
-                'file' => $filename,
-                'download_url' => url('/storage/' . $filename),
-                'total_personnel' => $academy->personnel->count(),
-                'total_absent' => count($allAbsentList),
-                'generated_at' => now()->toDateTimeString()
-            ]);
+            return response()->download($path, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])->deleteFileAfterSend(true);
 
         } catch (\Exception $e) {
             return response()->json([

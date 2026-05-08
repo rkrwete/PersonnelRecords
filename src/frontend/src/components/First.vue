@@ -213,7 +213,7 @@
               <div class="title">{{ selectedUnit.name }}</div>
               <div class="subtitle">Состояние личного состава</div>
             </div>
-            <button class="header-btn">Строевая записка</button>
+            <button class="header-btn" @click="downloadDutyRoster">Строевая записка</button>
           </div>
           <div class="tabs">
             <div class="tab" :class="{ active: tab === 1 }" @click="tab = 1">
@@ -483,6 +483,7 @@
   provide('statusOrder', statusOrder)
   provide('getRank', getRank)
   provide('countStatus', countStatus)
+  provide('showNoteColumn', false)
 
   function extractLocalPersonnel(unit) {
     let result = []
@@ -496,5 +497,38 @@
     }
 
     return result
+  }
+
+  async function downloadDutyRoster() {
+    if (!selectedUnit.value) return;
+
+    const unitId = selectedUnit.value.id;
+
+    const endpoint = unitId === 1
+        ? `/api/academic-duty-roster/export/${unitId}`
+        : `/api/duty-roster/export/${unitId}`;
+
+    try {
+      const response = await api.get(endpoint, { responseType: 'blob' });
+      const safeName = selectedUnit.value.name.replace(/\s+/g, '_');
+      const fileName = `Строевая_записка_${safeName}.xlsx`;
+
+      // Создаем виртуальную ссылку для скачивания файла
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+
+      // Добавляем ссылку в DOM, кликаем по ней и удаляем
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      // Очищаем память
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Ошибка при скачивании строевой записки:', error);
+      alert('Не удалось скачать файл. Попробуйте позже.');
+    }
   }
 </script>

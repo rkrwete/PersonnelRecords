@@ -38,8 +38,6 @@ export const useAuthStore = defineStore('auth', () => {
         userStore.$dispose()
 
         router.push('/')
-
-        // window.location.href = '/'
     }
 
     return {

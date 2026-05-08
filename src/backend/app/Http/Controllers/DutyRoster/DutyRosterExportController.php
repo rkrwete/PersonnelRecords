@@ -224,15 +224,9 @@ class DutyRosterExportController extends Controller
             $writer = new Xlsx($spreadsheet);
             $writer->save($path);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Строевая записка создана',
-                'file' => $filename,
-                'download_url' => url('/storage/' . $filename),
-                'total_personnel' => $unit->personnel->count(),
-                'total_absent' => count($absentList),
-                'generated_at' => now()->toDateTimeString()
-            ]);
+            return response()->download($path, $filename, [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ])->deleteFileAfterSend(true);
 
         } catch (\Exception $e) {
             return response()->json([
