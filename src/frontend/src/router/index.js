@@ -3,6 +3,7 @@ import Auth from "../components/Auth.vue"
 import MainCommander from "../components/MainCommander.vue"
 import First from "../components/First.vue"
 import SettingsCommander from "../components/SettingsCommander.vue"
+import AdminPanel from "../components/AdminPanel.vue"
 import { useAuthStore } from "../stores/auth.js";
 
 const routes = [
@@ -22,6 +23,11 @@ const routes = [
     {
         path: '/settings',
         component: SettingsCommander,
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/admin',
+        component: AdminPanel,
         meta: { requiresAuth: true }
     }
 ]

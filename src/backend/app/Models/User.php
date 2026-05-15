@@ -8,7 +8,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable {
     use HasApiTokens;
-    protected $fillable = ['name', 'email', 'password', 'role_id', 'unit_id'];
+    protected $fillable = ['name', 'login', 'email', 'password', 'role_id', 'unit_id'];
 
     public function role(): BelongsTo {
         return $this->belongsTo(Role::class);

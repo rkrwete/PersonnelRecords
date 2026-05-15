@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\UnitStructureController;
 use App\Http\Controllers\Api\PersonnelController;
+use App\Http\Controllers\Api\UserController;
 
 //контроллеры для строевых записок
 use App\Http\Controllers\DutyRoster\DutyRosterExportController;
@@ -28,9 +29,18 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::patch('/personnel/{id}', [PersonnelController::class, 'changeStatus']);
+
+    Route::post('/units', [UnitController::class, 'store']);
+    Route::patch('/units/{id}', [UnitController::class, 'update']);
+    Route::delete('/units/{id}', [UnitController::class, 'destroy']);
+
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::patch('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
 });
 
-// получение строевой записки на подразделение 
+// получение строевой записки на подразделение
 Route::get('/duty-roster/export/{unitId}', [DutyRosterExportController::class, 'export']);
 // получение строевой записки на академию
 Route::get('/academic-duty-roster/export/{unitId?}', [AcademicDutyRosterController::class, 'export']);

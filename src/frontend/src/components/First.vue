@@ -513,18 +513,15 @@
       const safeName = selectedUnit.value.name.replace(/\s+/g, '_');
       const fileName = `Строевая_записка_${safeName}.xlsx`;
 
-      // Создаем виртуальную ссылку для скачивания файла
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', fileName);
 
-      // Добавляем ссылку в DOM, кликаем по ней и удаляем
       document.body.appendChild(link);
       link.click();
       link.remove();
 
-      // Очищаем память
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Ошибка при скачивании строевой записки:', error);
