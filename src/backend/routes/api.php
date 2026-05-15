@@ -12,6 +12,7 @@ use App\Http\Controllers\DutyRoster\DutyRosterExportController;
 use App\Http\Controllers\DutyRoster\AcademicDutyRosterController;
 
 
+
 Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test', fn () => ['ok' => true]);
 Route::get('/units', [UnitController::class, 'index']);
