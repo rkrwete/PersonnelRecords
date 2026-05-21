@@ -35,7 +35,12 @@ const handleLogin = async () => {
   error.value = '';
   try {
     await auth.login(form);
-    router.push('/main');
+    const user = JSON.parse(window.localStorage.getItem('user'))
+    if (user.role_id == 4) {
+      router.push('/admin');
+    } else {
+      router.push('/lichnyy-kabinet');
+    }
   } catch (err) {
     error.value = 'Ошибка входа. Проверьте логин и пароль.';
   } finally {

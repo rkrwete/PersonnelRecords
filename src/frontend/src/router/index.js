@@ -12,16 +12,16 @@ const routes = [
         component: First
     },
     {
-        path: '/main',
+        path: '/lichnyy-kabinet',
         component: MainCommander,
         meta: { requiresAuth: true }
     },
     {
-        path: '/auth',
+        path: '/avtorizaciya',
         component: Auth
     },
     {
-        path: '/settings',
+        path: '/nastroyki-lichnogo-kabineta',
         component: SettingsCommander,
         meta: { requiresAuth: true }
     },

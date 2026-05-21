@@ -118,7 +118,6 @@ class PersonnelController extends Controller {
             $unit = $unitsData[$currentId];
             $childUnits = [];
 
-            // Находим прямых потомков
             $directChildren = $unitsData->where('parent_id', $currentId);
             foreach ($directChildren as $child) {
                 $childNode = $buildTree($child->id);
@@ -126,6 +125,17 @@ class PersonnelController extends Controller {
                     $childUnits[] = $childNode;
                 }
             }
+
+            usort($childUnits, function ($a, $b) {
+                $aIsTarget = mb_strtolower($a['name']) === 'научная рота';
+                $bIsTarget = mb_strtolower($b['name']) === 'научная рота';
+
+                if ($aIsTarget && !$bIsTarget) return -1; // $a выше
+                if (!$aIsTarget && $bIsTarget) return 1;  // $b выше
+
+                // Если ни одно, либо оба — "Научная рота" (маловероятно), сортируем по ID
+                return $a['id'] <=> $b['id'];
+            });
 
             $categories = [];
             $totalShtat = 0;
@@ -175,7 +185,7 @@ class PersonnelController extends Controller {
 
         $person->update([
             'current_status_id' => $request->current_status_id,
-            'note' => $request->input('note', '')
+            'note' => $request->input('note', '') ?? ''
         ]);
 
         return response()->json(['success' => true]);
