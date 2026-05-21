@@ -6,6 +6,8 @@ import SettingsCommander from "../components/SettingsCommander.vue"
 import AdminPanel from "../components/AdminPanel.vue"
 import { useAuthStore } from "../stores/auth.js";
 
+import Calendar from "../components/Calendar.vue"
+
 const routes = [
     {
         path: '/',
@@ -29,6 +31,11 @@ const routes = [
         path: '/admin',
         component: AdminPanel,
         meta: { requiresAuth: true }
+    },
+    {
+        path: '/calendar',  // Добавляем маршрут для календаря
+        component: Calendar,
+        meta: { requiresAuth: false }
     }
 ]
 
