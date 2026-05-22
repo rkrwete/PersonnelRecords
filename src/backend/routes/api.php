@@ -42,7 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/users', [UserController::class, 'store']);
     Route::patch('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
-/*
+
     // Памятные даты
     Route::get('/memorable-dates', [MemorableDateController::class, 'index']);
     Route::get('/memorable-dates/{id}', [MemorableDateController::class, 'show']);
@@ -54,7 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/notes', [CalendarNoteController::class, 'store']);
         Route::put('/notes/{id}', [CalendarNoteController::class, 'update']);
         Route::delete('/notes/{id}', [CalendarNoteController::class, 'destroy']);
-    });*/
+    });
 });
 
 // получение строевой записки на подразделение
@@ -63,15 +63,3 @@ Route::get('/duty-roster/export/{unitId}', [DutyRosterExportController::class, '
 Route::get('/academic-duty-roster/export/{unitId?}', [AcademicDutyRosterController::class, 'export']);
 
 
-// Памятные даты
-Route::get('/memorable-dates', [MemorableDateController::class, 'index']);
-Route::get('/memorable-dates/{id}', [MemorableDateController::class, 'show']);
-
-// Заметки календаря
-Route::prefix('/calendar')->group(function () {
-    Route::get('/notes', [CalendarNoteController::class, 'index']);
-    Route::get('/notes/{date}', [CalendarNoteController::class, 'show']);
-    Route::post('/notes', [CalendarNoteController::class, 'store']);
-    Route::put('/notes/{id}', [CalendarNoteController::class, 'update']);
-    Route::delete('/notes/{id}', [CalendarNoteController::class, 'destroy']);
-});

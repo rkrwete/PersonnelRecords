@@ -17,8 +17,15 @@ class UnitController extends Controller {
         $result = [];
 
         $result = $tree
-            ->flatMap(fn ($node) => $node['children'])
-            ->sortBy('id')
+            ->flatMap(fn ($node) => $node['children']);
+
+        $scienceCompany = $result->first(
+            fn ($node) => mb_strtolower(trim($node['name'])) === 'научная рота'
+        );
+
+        $result = $result
+            ->reject(fn ($node) => mb_strtolower(trim($node['name'])) === 'научная рота')
+            ->prepend($scienceCompany)
             ->values();
 
         return response()->json([

@@ -40,27 +40,22 @@ class CalendarNoteController extends Controller
         }
     }
 
-    // Создать или обновить заметку (upsert)
     public function store(Request $request)
     {
         $request->validate([
             'date' => 'required|date',
             'content' => 'required|string|max:5000'
         ]);
-
-        $note = CalendarNote::updateOrCreate(
-            [
-                'user_id' => Auth::id(),
-                'date' => $request->date
-            ],
-            [
-                'content' => $request->content
-            ]
-        );
-
+        
+        $note = CalendarNote::create([
+            'user_id' => Auth::id(),
+            'date' => $request->date,
+            'content' => $request->content
+        ]);
+        
         return response()->json($note, 201);
     }
-
+    
     // Обновить существующую заметку по id
     public function update(Request $request, $id)
     {

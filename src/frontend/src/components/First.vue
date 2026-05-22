@@ -185,6 +185,50 @@
     background: rgba(255,255,255,0.2);
     text-align: center;
   }
+
+  .table-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    margin-top: 10px;
+  }
+
+  .search-container {
+    width: 320px;
+  }
+
+  .table-search-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 8px;
+    outline: none;
+    font-size: 13px;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .table-search-input:focus {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  .table-search-input::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  .table-no-results {
+    text-align: center;
+    padding: 40px 0;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    margin-top: 15px;
+  }
 </style>
 
 <template>
@@ -265,8 +309,19 @@
             </div>
           </div>
           <div v-if="tab === 2">
-            <div class="title">Расход личного состава</div>
-            <table class="table">
+            <div class="table-header-row">
+              <div class="title" style="margin: 0; text-align: left;">Расход личного состава</div>
+              <div class="search-container">
+                <input 
+                  v-model="tableSearchQuery" 
+                  type="text" 
+                  placeholder="Поиск подразделения / категории..." 
+                  class="table-search-input"
+                />
+              </div>
+            </div>
+
+            <table class="table" v-if="filteredCategories.length > 0">
               <colgroup>
                 <col style="width: 70px">
                 <col style="">
@@ -296,7 +351,7 @@
                 </tr>
               </thead>
               <tbody>
-                <template v-for="(unit, index) in categories" :key="unit.id">
+                <template v-for="(unit, index) in filteredCategories" :key="unit.id">
                   <RowUnit
                       :unit="unit"
                       :level="0"
@@ -316,6 +371,10 @@
                 </tr>
               </tbody>
             </table>
+            
+            <div v-else class="table-no-results">
+              По вашему запросу ничего не найдено
+            </div>
           </div>
         </div>
       </div>
@@ -323,7 +382,7 @@
   </div>
 </template>
 <script setup>
-  import { ref, onMounted, computed, provide } from 'vue'
+  import { ref, onMounted, computed, provide, watch } from 'vue'
   import api from '../services/api.js'
   import HeaderFirst from './HeaderFirst.vue'
   import UnitNode from './UnitNode.vue'
@@ -336,6 +395,7 @@
   const selectedUnit = ref(null)
   const categories = ref([])
   const tab = ref(1)
+  const tableSearchQuery = ref('')
 
   const statusMapById = computed(() => {
     return Object.fromEntries(statuses.map(s => [s.id, s]))
@@ -528,4 +588,81 @@
       alert('Не удалось скачать файл. Попробуйте позже.');
     }
   }
+
+  function filterCategoriesTree(nodes, query) {
+    if (!query) return nodes
+    const cleanQuery = query.toLowerCase().trim()
+
+    return nodes.reduce((acc, node) => {
+      const isNodeNameMatch = node.name.toLowerCase().includes(cleanQuery)
+
+      const filteredPersonnel = node.personnel 
+        ? node.personnel.filter(p => {
+            const fullName = `${p.last_name || ''} ${p.first_name || ''} ${p.middle_name || ''}`.toLowerCase()
+            return fullName.includes(cleanQuery)
+          })
+        : []
+      const hasPersonnelMatch = filteredPersonnel.length > 0
+
+      const matchingChildren = node.children ? filterCategoriesTree(node.children, query) : []
+      const hasChildrenMatch = matchingChildren.length > 0
+
+      if (isNodeNameMatch || hasPersonnelMatch || hasChildrenMatch) {
+        const newNode = { ...node }
+
+        if (hasChildrenMatch) {
+          newNode.children = matchingChildren
+        } else if (node.children) {
+          newNode.children = isNodeNameMatch ? node.children : []
+        }
+
+        newNode.personnel = isNodeNameMatch ? node.personnel : (hasPersonnelMatch ? filteredPersonnel : node.personnel)
+
+        acc.push(newNode)
+      }
+
+      return acc
+    }, [])
+  }
+
+  const filteredCategories = computed(() => {
+    return filterCategoriesTree(categories.value, tableSearchQuery.value)
+  })
+
+  watch(tableSearchQuery, (newQuery) => {
+    if (!newQuery) {
+      expanded.value.clear() 
+      return
+    }
+
+    const cleanQuery = newQuery.toLowerCase().trim()
+
+    function checkAndExpand(nodes) {
+      let anyChildMatched = false
+
+      for (const node of nodes) {
+        const isSelfMatch = node.name.toLowerCase().includes(cleanQuery)
+        
+        const isPersonnelMatch = node.personnel && node.personnel.some(p => {
+          const fullName = `${p.last_name || ''} ${p.first_name || ''} ${p.middle_name || ''}`.toLowerCase()
+          return fullName.includes(cleanQuery)
+        })
+
+        const isSubChildMatch = node.children ? checkAndExpand(node.children) : false
+
+        if (isSelfMatch || isPersonnelMatch || isSubChildMatch) {
+          expanded.value.add(node.id)
+          anyChildMatched = true
+        }
+      }
+
+      return anyChildMatched
+    }
+
+    checkAndExpand(categories.value)
+  })
+
+  watch(selectedUnit, () => {
+    tableSearchQuery.value = ''
+  })
 </script>

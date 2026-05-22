@@ -1,41 +1,24 @@
 <template>
   <div class="page">
     <div class="layout">
-      <!-- ЛЕВАЯ ПАНЕЛЬ: 7 памятных дат -->
+      <!-- Левая боковая панель - ЗАМЕТКИ -->
       <div class="sidebar">
-        <div class="title">Памятные даты</div>
-        <div class="memorable-dates-list">
+        <div class="title">Мои заметки</div>
+        <div class="notes-list-sidebar" v-if="allNotes.length">
           <div 
-            v-for="date in upcomingMemorableDates" 
-            :key="date.id"
-            class="memorable-date-item"
-            :class="{ 'past': date.isPast, 'upcoming': !date.isPast }"
-            :title="date.name"
+            v-for="note in sortedNotes" 
+            :key="note.id"
+            class="note-item-sidebar"
+            @click="selectNoteDate(note.date)"
           >
-            <div class="date-number">{{ formatDateShort(date.date) }}</div>
-            <div class="date-name">{{ date.name }}</div>
+            <div class="note-date-sidebar">{{ formatDateLong(note.date) }}</div>
+            <div class="note-preview-sidebar">{{ note.content.substring(0, 50) }}...</div>
           </div>
         </div>
-
-        <!-- БЛОК ЗАМЕТОК (появляется по кнопке) -->
-        <div class="notes-sidebar" v-if="showNotes">
-          <div class="title">Мои заметки</div>
-          <div class="notes-list" v-if="userNotes.length">
-            <div 
-              v-for="note in userNotes.slice(0, 5)" 
-              :key="note.id"
-              class="note-item"
-              @click="selectNoteDate(note.date)"
-            >
-              <div class="note-date">{{ formatDateShort(new Date(note.date)) }}</div>
-              <div class="note-preview">{{ note.content.substring(0, 30) }}...</div>
-            </div>
-          </div>
-          <div v-else class="empty-notes">Нет заметок</div>
-        </div>
+        <div v-else class="empty-notes-sidebar">Нет заметок</div>
       </div>
 
-      <!-- ОСНОВНОЙ КОНТЕНТ (календарь) -->
+      <!-- Основной контент - календарь -->
       <div class="content">
         <div class="card">
           <div class="header-block">
@@ -56,69 +39,89 @@
             </div>
             <div class="calendar-days">
               <div 
-                v-for="(day, idx) in calendarDays" 
-                :key="idx"
+                v-for="(day, index) in calendarDays" 
+                :key="index"
                 class="calendar-day"
                 :class="{
                   'other-month': !day.isCurrentMonth,
                   'today': day.isToday,
                   'has-memorable': day.hasMemorableDate,
-                  'has-note': day.hasNote
+                  'has-notes': day.notes && day.notes.length > 0
                 }"
                 @click="selectDay(day)"
               >
                 <div class="day-number">{{ day.day }}</div>
-                <div class="memorable-indicators">
+                <div class="memorable-names">
                   <div 
                     v-for="md in day.memorableDates" 
                     :key="md.id"
-                    class="memorable-badge"
+                    class="memorable-name"
                     :style="{ backgroundColor: md.color }"
                     :title="md.name"
                   >
-                    {{ md.name.substring(0, 2) }}
+                    {{ md.name }}
                   </div>
                 </div>
-                <div v-if="day.hasNote" class="note-indicator">📝</div>
+                <div v-if="day.notes && day.notes.length > 0" class="notes-count" :title="'Заметок: ' + day.notes.length">
+                  📝 {{ day.notes.length }}
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- БЛОК ВЫБРАННОГО ДНЯ (заметки) -->
-          <div v-if="selectedDate" class="selected-date-info">
-            <div class="selected-date-header">
-              <div class="selected-date-title">{{ formatDateFull(selectedDate.date) }}</div>
-              <button class="toggle-notes-btn" @click="showNotes = !showNotes">
-                {{ showNotes ? 'Скрыть заметки' : 'Показать заметки' }}
-              </button>
-            </div>
-
-            <div v-if="selectedDate.memorableDates.length" class="memorable-details">
-              <div 
-                v-for="md in selectedDate.memorableDates" 
-                :key="md.id"
-                class="memorable-detail-item"
-                :style="{ borderLeftColor: md.color }"
-              >
-                <div class="detail-name">{{ md.name }}</div>
-                <div class="detail-description" v-if="md.description">{{ md.description }}</div>
+          <!-- Модальное окно для заметок -->
+          <div v-if="selectedDay" class="modal-overlay" @click="closeModal">
+            <div class="modal-content" @click.stop>
+              <div class="modal-header">
+                <h3>{{ formatDateLong(selectedDay.dateStr) }}</h3>
+                <button class="close-btn" @click="closeModal">×</button>
               </div>
-            </div>
-
-            <div class="notes-section">
-              <div class="notes-title">Заметка на {{ formatDateShort(selectedDate.date) }}</div>
-              <textarea 
-                v-model="currentNote" 
-                class="note-input"
-                placeholder="Добавить заметку..."
-                rows="3"
-              ></textarea>
-              <div class="note-actions">
-                <button class="save-note-btn" @click="saveNote" :disabled="saving">
-                  {{ saving ? 'Сохранение...' : 'Сохранить заметку' }}
-                </button>
-                <button class="delete-note-btn" @click="deleteNote" v-if="currentNoteId">
-                  Удалить
+              
+              <div class="notes-list-container" v-if="selectedDay.notes && selectedDay.notes.length">
+                <div class="notes-title">Заметки ({{ selectedDay.notes.length }}):</div>
+                <div 
+                  v-for="note in selectedDay.notes" 
+                  :key="note.id"
+                  class="note-card"
+                >
+                  <div class="note-content">
+                    <p class="note-text">{{ note.content }}</p>
+                    <div class="note-actions">
+                      <button class="edit-btn" @click="startEditNote(note)">✏️ Редактировать</button>
+                      <button class="delete-btn" @click="deleteNote(note.id)">🗑️ Удалить</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="editingNoteId" class="edit-note-section">
+                <div class="notes-title">Редактирование заметки:</div>
+                <textarea 
+                  v-model="editNoteContent" 
+                  class="note-input"
+                  rows="3"
+                  placeholder="Текст заметки..."
+                ></textarea>
+                <div class="edit-actions">
+                  <button class="save-edit-btn" @click="updateNote" :disabled="saving">Сохранить</button>
+                  <button class="cancel-edit-btn" @click="cancelEdit">Отмена</button>
+                </div>
+              </div>
+              
+              <div class="new-note-section">
+                <div class="notes-title">Новая заметка:</div>
+                <textarea 
+                  v-model="newNoteContent" 
+                  class="note-input"
+                  rows="3"
+                  placeholder="Введите текст заметки..."
+                ></textarea>
+                <button 
+                  class="save-note-btn" 
+                  @click="createNote" 
+                  :disabled="!newNoteContent.trim() || saving"
+                >
+                  {{ saving ? 'Сохранение...' : '➕ Добавить заметку' }}
                 </button>
               </div>
             </div>
@@ -130,18 +133,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import api from '../services/api.js'
 
-// Состояния
+// Состояние
 const currentDate = ref(new Date())
-const selectedDate = ref(null)
-const showNotes = ref(false)
-const currentNote = ref('')
-const currentNoteId = ref(null)
-const saving = ref(false)
-const userNotes = ref([])
 const memorableDates = ref([])
+const allNotes = ref([])
+const selectedDay = ref(null)
+const newNoteContent = ref('')
+const editNoteContent = ref('')
+const editingNoteId = ref(null)
+const saving = ref(false)
 
 // Константы
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
@@ -151,16 +154,38 @@ const currentYear = computed(() => currentDate.value.getFullYear())
 const currentMonth = computed(() => currentDate.value.getMonth())
 const currentMonthName = computed(() => currentDate.value.toLocaleString('ru', { month: 'long' }))
 
-// ========== 1. Памятные даты (7 штук: 3 прошедшие + 4 будущие) ==========
+// Сортировка заметок по календарной дате (от старых к новым)
+const sortedNotes = computed(() => {
+  return [...allNotes.value].sort((a, b) => new Date(a.date) - new Date(b.date))
+})
+
+// Загрузка памятных дат
 async function loadMemorableDates() {
   try {
-    const res = await api.get('/memorable-dates')
-    memorableDates.value = res.data
-  } catch (e) {
-    console.error('Ошибка загрузки памятных дат:', e)
+    const response = await api.get('/api/memorable-dates')
+    memorableDates.value = response.data
+    console.log('Загружено памятных дат:', memorableDates.value.length)
+  } catch (error) {
+    console.error('Ошибка загрузки памятных дат:', error)
   }
 }
 
+// Загрузка заметок с нормализацией дат
+async function loadNotes() {
+  try {
+    const response = await api.get('/api/calendar/notes')
+    allNotes.value = (Array.isArray(response.data) ? response.data : []).map(note => ({
+      ...note,
+      date: note.date ? note.date.split('T')[0] : note.date
+    }))
+    console.log('Загружено заметок:', allNotes.value.length)
+  } catch (error) {
+    console.error('Ошибка загрузки заметок:', error)
+    allNotes.value = []
+  }
+}
+
+// Получение памятных дат для конкретного месяца и года
 function getMemorableDatesForMonth(year, month) {
   return memorableDates.value.filter(md => {
     const [mdMonth] = md.date.split('-')
@@ -171,205 +196,218 @@ function getMemorableDatesForMonth(year, month) {
   }))
 }
 
-// 7 дат: 3 ПРОШЕДШИХ + 4 БУДУЩИХ (от текущей даты)
-const upcomingMemorableDates = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const allDates = memorableDates.value.map(md => {
-    const [month, day] = md.date.split('-')
-    let targetDate = new Date(today.getFullYear(), parseInt(month) - 1, parseInt(day))
-    if (targetDate < today) {
-      targetDate = new Date(today.getFullYear() + 1, parseInt(month) - 1, parseInt(day))
-    }
-    return { ...md, date: targetDate, isPast: targetDate < today }
-  })
-
-  allDates.sort((a, b) => a.date - b.date)
-  const pastDates = allDates.filter(d => d.isPast)
-  const futureDates = allDates.filter(d => !d.isPast)
-
-  // Берём 3 прошлые и 4 будущие (всего 7)
-  const result = [
-    ...pastDates.slice(-3),
-    ...futureDates.slice(0, 4)
-  ]
-  return result.sort((a, b) => a.date - b.date)
-})
-
-// ========== 2. Календарная сетка ==========
+// Построение календарной сетки
 const calendarDays = computed(() => {
   const year = currentYear.value
   const month = currentMonth.value
 
-  const firstDay = new Date(year, month, 1)
-  let startWeekday = firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1
+  const firstDayOfMonth = new Date(year, month, 1)
+  let startWeekday = firstDayOfMonth.getDay()
+  startWeekday = startWeekday === 0 ? 6 : startWeekday - 1
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const monthMemorable = getMemorableDatesForMonth(year, month)
-  const notesMap = new Map(userNotes.value.map(n => [n.date, true]))
+  const monthMemorableDates = getMemorableDatesForMonth(year, month)
 
+  const notesByDate = new Map()
+  allNotes.value.forEach(note => {
+    if (note && note.date) {
+      if (!notesByDate.has(note.date)) {
+        notesByDate.set(note.date, [])
+      }
+      notesByDate.get(note.date).push(note)
+    }
+  })
+
+  const days = []
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const days = []
-
-  // Дни предыдущего месяца
   const prevMonthLastDay = new Date(year, month, 0).getDate()
   for (let i = startWeekday - 1; i >= 0; i--) {
-    const d = new Date(year, month - 1, prevMonthLastDay - i)
+    const dayDate = new Date(year, month - 1, prevMonthLastDay - i)
+    const dateStr = formatDateYMD(dayDate)
     days.push({
       day: prevMonthLastDay - i,
-      date: d,
+      date: dayDate,
+      dateStr: dateStr,
       isCurrentMonth: false,
       isToday: false,
       hasMemorableDate: false,
-      hasNote: false,
-      memorableDates: []
+      memorableDates: [],
+      notes: notesByDate.get(dateStr) || []
     })
   }
 
-  // Дни текущего месяца
   for (let i = 1; i <= daysInMonth; i++) {
-    const d = new Date(year, month, i)
-    const isToday = d.toDateString() === today.toDateString()
-    const dayMemorable = monthMemorable.filter(m => m.date.getDate() === i)
+    const dayDate = new Date(year, month, i)
+    const isToday = dayDate.toDateString() === today.toDateString()
+    const dateStr = formatDateYMD(dayDate)
+    const dayMemorableDates = monthMemorableDates.filter(md => md.date.getDate() === i)
+    const dayNotes = notesByDate.get(dateStr) || []
 
     days.push({
       day: i,
-      date: d,
+      date: dayDate,
+      dateStr: dateStr,
       isCurrentMonth: true,
       isToday,
-      hasMemorableDate: dayMemorable.length > 0,
-      hasNote: notesMap.has(formatDateYMD(d)),
-      memorableDates: dayMemorable
+      hasMemorableDate: dayMemorableDates.length > 0,
+      memorableDates: dayMemorableDates,
+      notes: dayNotes
     })
   }
 
-  // Дни следующего месяца до 42 ячеек
   let remaining = 42 - days.length
   for (let i = 1; i <= remaining; i++) {
-    const d = new Date(year, month + 1, i)
+    const dayDate = new Date(year, month + 1, i)
+    const dateStr = formatDateYMD(dayDate)
     days.push({
       day: i,
-      date: d,
+      date: dayDate,
+      dateStr: dateStr,
       isCurrentMonth: false,
       isToday: false,
       hasMemorableDate: false,
-      hasNote: false,
-      memorableDates: []
+      memorableDates: [],
+      notes: notesByDate.get(dateStr) || []
     })
   }
 
   return days
 })
 
-// ========== 3. Заметки (CRUD) ==========
-async function loadUserNotes() {
-  try {
-    const res = await api.get('/calendar/notes')
-    userNotes.value = res.data
-  } catch (e) {
-    console.error('Ошибка загрузки заметок:', e)
-  }
-}
-
-async function loadNoteForDate(date) {
-  if (!date) return
-  const dateStr = formatDateYMD(date)
-  try {
-    const res = await api.get(`/calendar/notes/${dateStr}`)
-    if (res.data && res.data.content) {
-      currentNote.value = res.data.content
-      currentNoteId.value = res.data.id
-    } else {
-      currentNote.value = ''
-      currentNoteId.value = null
-    }
-  } catch (e) {
-    currentNote.value = ''
-    currentNoteId.value = null
-  }
-}
-
-async function saveNote() {
-  if (!selectedDate.value) return
-  const content = currentNote.value.trim()
-  if (!content) {
-    alert('Заметка не может быть пустой')
-    return
-  }
+// Создание заметки
+async function createNote() {
+  if (!selectedDay.value || !newNoteContent.value.trim()) return
+  
   saving.value = true
-  const dateStr = formatDateYMD(selectedDate.value.date)
   try {
-    await api.post('/calendar/notes', { date: dateStr, content })
-    await loadUserNotes()
-    if (selectedDate.value) selectedDate.value.hasNote = true
-    alert('Заметка сохранена')
-  } catch (e) {
-    alert('Ошибка сохранения')
+    await api.post('/api/calendar/notes', {
+      date: selectedDay.value.dateStr,
+      content: newNoteContent.value.trim()
+    })
+    await loadNotes()
+    newNoteContent.value = ''
+    
+    const updatedDay = calendarDays.value.find(d => d.dateStr === selectedDay.value.dateStr)
+    if (updatedDay) {
+      selectedDay.value = updatedDay
+    }
+    alert('Заметка добавлена')
+  } catch (error) {
+    console.error('Ошибка создания заметки:', error)
+    alert('Не удалось создать заметку')
   } finally {
     saving.value = false
   }
 }
 
-async function deleteNote() {
-  if (!currentNoteId.value) return
-  if (!confirm('Удалить заметку?')) return
+// Редактирование заметки
+function startEditNote(note) {
+  editingNoteId.value = note.id
+  editNoteContent.value = note.content
+}
+
+async function updateNote() {
+  if (!editNoteContent.value.trim()) return
+  
+  saving.value = true
   try {
-    await api.delete(`/calendar/notes/${currentNoteId.value}`)
-    currentNote.value = ''
-    currentNoteId.value = null
-    await loadUserNotes()
-    if (selectedDate.value) selectedDate.value.hasNote = false
+    await api.put(`/api/calendar/notes/${editingNoteId.value}`, {
+      content: editNoteContent.value.trim()
+    })
+    await loadNotes()
+    cancelEdit()
+    const updatedDay = calendarDays.value.find(d => d.dateStr === selectedDay.value.dateStr)
+    if (updatedDay) {
+      selectedDay.value = updatedDay
+    }
+    alert('Заметка обновлена')
+  } catch (error) {
+    console.error('Ошибка обновления заметки:', error)
+    alert('Не удалось обновить заметку')
+  } finally {
+    saving.value = false
+  }
+}
+
+// Удаление заметки
+async function deleteNote(noteId) {
+  if (!confirm('Удалить заметку?')) return
+  
+  try {
+    await api.delete(`/api/calendar/notes/${noteId}`)
+    await loadNotes()
+    const updatedDay = calendarDays.value.find(d => d.dateStr === selectedDay.value.dateStr)
+    if (updatedDay) {
+      selectedDay.value = updatedDay
+    }
     alert('Заметка удалена')
-  } catch (e) {
-    alert('Ошибка удаления')
+  } catch (error) {
+    console.error('Ошибка удаления заметки:', error)
+    alert('Не удалось удалить заметку')
   }
 }
 
-function selectNoteDate(dateStr) {
-  const date = new Date(dateStr)
-  currentDate.value = new Date(date.getFullYear(), date.getMonth(), 1)
-  setTimeout(() => {
-    const dayToSelect = calendarDays.value.find(d => formatDateYMD(d.date) === dateStr)
-    if (dayToSelect) selectDay(dayToSelect)
-  }, 100)
+function cancelEdit() {
+  editingNoteId.value = null
+  editNoteContent.value = ''
 }
 
-// ========== 4. Выбор дня ==========
+// Выбор дня
 function selectDay(day) {
-  if (!day) return
-  selectedDate.value = {
-    date: day.date,
-    memorableDates: day.memorableDates || [],
-    hasNote: day.hasNote || false
-  }
-  loadNoteForDate(day.date)
+  selectedDay.value = day
+  newNoteContent.value = ''
+  cancelEdit()
 }
 
-// ========== 5. Навигация ==========
+// Выбор заметки из левой панели
+function selectNoteDate(dateStr) {
+  const day = calendarDays.value.find(d => d.dateStr === dateStr)
+  if (day) {
+    selectDay(day)
+    const date = new Date(dateStr)
+    currentDate.value = new Date(date.getFullYear(), date.getMonth(), 1)
+  }
+}
+
+function closeModal() {
+  selectedDay.value = null
+  newNoteContent.value = ''
+  cancelEdit()
+}
+
+// Навигация
 function previousMonth() {
   currentDate.value = new Date(currentYear.value, currentMonth.value - 1, 1)
 }
+
 function nextMonth() {
   currentDate.value = new Date(currentYear.value, currentMonth.value + 1, 1)
 }
+
 function goToToday() {
   currentDate.value = new Date()
 }
 
-// ========== 6. Форматирование дат ==========
+// Форматирование дат
 function formatDateYMD(date) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
+
 function formatDateShort(date) {
-  return `${date.getDate()} ${date.toLocaleString('ru', { month: 'short' })}`
+  if (!date) return ''
+  const day = date.getDate()
+  const month = date.toLocaleString('ru', { month: 'short' })
+  return `${day} ${month}`
 }
-function formatDateFull(date) {
+
+function formatDateLong(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
   return date.toLocaleString('ru', {
     year: 'numeric',
     month: 'long',
@@ -378,21 +416,24 @@ function formatDateFull(date) {
   })
 }
 
-// ========== Инициализация ==========
+// Следим за изменением заметок
+watch(allNotes, () => {
+  if (selectedDay.value) {
+    const updatedDay = calendarDays.value.find(d => d.dateStr === selectedDay.value.dateStr)
+    if (updatedDay) {
+      selectedDay.value = updatedDay
+    }
+  }
+}, { deep: true })
+
+// Инициализация
 onMounted(async () => {
   await loadMemorableDates()
-  await loadUserNotes()
-  const today = new Date()
-  selectDay({
-    date: today,
-    memorableDates: getMemorableDatesForMonth(today.getFullYear(), today.getMonth()).filter(md => md.date.getDate() === today.getDate()),
-    hasNote: false
-  })
+  await loadNotes()
 })
 </script>
 
 <style scoped>
-/* Стили – возьмите из вашего предыдущего рабочего варианта (они уже нормальные) */
 .page {
   display: flex;
   justify-content: center;
@@ -400,8 +441,8 @@ onMounted(async () => {
   padding: 15px;
   height: calc(100vh - 70px);
   overflow: hidden;
-
 }
+
 .layout {
   display: flex;
   gap: 20px;
@@ -409,8 +450,9 @@ onMounted(async () => {
   max-width: 100%;
   height: 100%;
 }
+
 .sidebar {
-  width: 280px;
+  width: 320px;
   padding: 16px 10px;
   border-radius: 10px;
   height: 100%;
@@ -418,11 +460,13 @@ onMounted(async () => {
   box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
   scrollbar-width: thin;
 }
+
 .content {
   flex: 1;
   height: 100%;
   overflow-y: auto;
 }
+
 .card {
   padding: 20px;
   border-radius: 10px;
@@ -431,7 +475,9 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
+
 .header-block {
   display: flex;
   justify-content: space-between;
@@ -439,14 +485,17 @@ onMounted(async () => {
   margin-bottom: 20px;
   flex-shrink: 0;
 }
+
 .header-text {
   text-align: center;
   flex: 1;
 }
+
 .calendar-controls {
   display: flex;
   gap: 10px;
 }
+
 .header-btn {
   padding: 6px 12px;
   border-radius: 10px;
@@ -458,34 +507,43 @@ onMounted(async () => {
   transition: all 0.3s ease;
   font-family: "Tektur", sans-serif;
 }
+
 .header-btn:hover {
   background: var(--btn-hover);
   color: var(--text-hover);
   transform: translateY(-2px);
 }
+
 .today-btn {
   background: #4CAF50;
 }
+
 .today-btn:hover {
   background: #45a049;
 }
+
 .title {
   text-align: center;
   font-weight: 700;
   margin: 10px 0;
   font-size: 18px;
 }
+
 .subtitle {
   text-align: center;
   font-size: 14px;
   opacity: 0.8;
   margin-bottom: 5px;
 }
+
+/* Календарь - фиксированные ячейки */
 .calendar {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
+
 .weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -493,6 +551,7 @@ onMounted(async () => {
   margin-bottom: 8px;
   flex-shrink: 0;
 }
+
 .weekday {
   text-align: center;
   padding: 8px;
@@ -501,202 +560,324 @@ onMounted(async () => {
   border-radius: 5px;
   font-size: 13px;
 }
+
 .calendar-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
+
 .calendar-day {
-  min-height: 70px;
-  padding: 6px;
+  aspect-ratio: 1 / 1;
+  min-width: 0;
+  padding: 4px;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
   cursor: pointer;
-  transition: all 0.3s ease;
   position: relative;
   display: flex;
   flex-direction: column;
+  transition: all 0.3s ease;
+  overflow: hidden;
 }
+
+/* Адаптивные минимальные высоты */
+@media (min-width: 1400px) {
+  .calendar-day {
+    min-height: 90px;
+  }
+}
+
+@media (max-width: 1399px) and (min-width: 1000px) {
+  .calendar-day {
+    min-height: 75px;
+  }
+}
+
+@media (max-width: 999px) {
+  .calendar-day {
+    min-height: 60px;
+  }
+}
+
 .calendar-day:hover {
   background: rgba(255, 255, 255, 0.1);
   transform: translateY(-1px);
 }
+
 .calendar-day.other-month {
   opacity: 0.3;
 }
+
 .calendar-day.today {
   border: 2px solid #4CAF50;
   background: rgba(76, 175, 80, 0.1);
 }
+
 .calendar-day.has-memorable {
   background: rgba(255, 193, 7, 0.15);
   border: 1px solid rgba(255, 193, 7, 0.5);
 }
-.calendar-day.has-note {
-  background: rgba(33, 150, 243, 0.1);
+
+.calendar-day.has-notes {
+  background: rgba(33, 150, 243, 0.15);
   border: 1px solid rgba(33, 150, 243, 0.5);
 }
-.calendar-day.has-memorable.has-note {
-  background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(33, 150, 243, 0.1));
+
+.calendar-day.past-date {
+  opacity: 0.6;
+  background: rgba(100, 100, 100, 0.1);
 }
+
 .day-number {
   font-size: 14px;
   font-weight: bold;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
 }
-.memorable-indicators {
+
+.memorable-names {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 2px;
-  margin-top: 2px;
-}
-.memorable-badge {
-  font-size: 8px;
-  padding: 2px 3px;
-  background: #FF9800;
-  color: white;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-.memorable-badge:hover {
-  transform: scale(1.05);
-}
-.note-indicator {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  font-size: 12px;
-}
-.memorable-dates-list {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.memorable-date-item {
-  padding: 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-.memorable-date-item:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: translateX(3px);
-}
-.memorable-date-item.past {
-  border-left: 3px solid #9E9E9E;
-}
-.memorable-date-item.upcoming {
-  border-left: 3px solid #4CAF50;
-}
-.date-number {
-  font-size: 12px;
-  font-weight: bold;
-  color: #FF9800;
-  margin-bottom: 3px;
-}
-.date-name {
-  font-size: 11px;
-}
-.notes-sidebar {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-.notes-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.note-item {
-  padding: 8px;
-  border-radius: 6px;
-  background: rgba(33, 150, 243, 0.1);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-.note-item:hover {
-  background: rgba(33, 150, 243, 0.2);
-  transform: translateX(3px);
-}
-.note-date {
-  font-size: 11px;
-  font-weight: bold;
-  color: #2196F3;
-  margin-bottom: 3px;
-}
-.note-preview {
-  font-size: 10px;
-  opacity: 0.8;
-}
-.selected-date-info {
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
   flex: 1;
   overflow-y: auto;
   min-height: 0;
 }
-.selected-date-header {
+
+/* Стилизация скроллбара */
+.memorable-names::-webkit-scrollbar {
+  width: 3px;
+}
+
+.memorable-names::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.memorable-names::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.memorable-name {
+  font-size: 8px;
+  padding: 2px 3px;
+  border-radius: 3px;
+  color: white;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.2;
+  max-width: 100%;
+  display: block;
+}
+
+.notes-count {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 10px;
+  background: rgba(33, 150, 243, 0.9);
+  padding: 1px 3px;
+  border-radius: 3px;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* Стили для списка заметок в левой панели */
+.notes-list-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.note-item-sidebar {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(33, 150, 243, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 3px solid #2196F3;
+}
+
+.note-item-sidebar:hover {
+  background: rgba(33, 150, 243, 0.2);
+  transform: translateX(3px);
+}
+
+.note-date-sidebar {
+  font-size: 12px;
+  font-weight: bold;
+  color: #2196F3;
+  margin-bottom: 6px;
+}
+
+.note-preview-sidebar {
+  font-size: 11px;
+  opacity: 0.8;
+  word-wrap: break-word;
+}
+
+.empty-notes-sidebar {
+  text-align: center;
+  opacity: 0.6;
+  padding: 40px 20px;
+  font-size: 14px;
+}
+
+/* Модальное окно */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg);
+  border-radius: 12px;
+  width: 500px;
+  max-width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
-.selected-date-title {
-  font-size: 18px;
-  font-weight: bold;
+
+.modal-header h3 {
+  margin: 0;
   color: #FF9800;
 }
-.toggle-notes-btn {
-  padding: 4px 10px;
-  border-radius: 6px;
+
+.close-btn {
+  background: none;
   border: none;
+  font-size: 28px;
   cursor: pointer;
-  background: #2196F3;
-  color: white;
-  font-size: 12px;
-  transition: all 0.3s ease;
+  color: var(--text);
+  opacity: 0.7;
+  transition: opacity 0.3s;
 }
-.toggle-notes-btn:hover {
-  background: #1976D2;
-  transform: translateY(-1px);
+
+.close-btn:hover {
+  opacity: 1;
 }
-.memorable-details {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+
+.notes-list-container {
   margin-bottom: 20px;
 }
-.memorable-detail-item {
-  padding: 10px;
-  background: rgba(255, 152, 0, 0.1);
-  border-radius: 6px;
-  border-left: 3px solid #FF9800;
-}
-.detail-name {
-  font-size: 14px;
-  font-weight: bold;
-  margin-bottom: 5px;
-}
-.detail-description {
-  font-size: 12px;
-  opacity: 0.8;
-}
-.notes-section {
-  margin-top: 20px;
-}
+
 .notes-title {
   font-size: 14px;
   font-weight: bold;
   margin-bottom: 10px;
+  color: #2196F3;
 }
+
+.note-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-left: 3px solid #2196F3;
+}
+
+.note-text {
+  margin: 0 0 10px 0;
+  word-wrap: break-word;
+  font-size: 14px;
+}
+
+.note-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.edit-btn, .delete-btn, .save-edit-btn, .cancel-edit-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.edit-btn {
+  background: #2196F3;
+  color: white;
+}
+
+.edit-btn:hover {
+  background: #1976D2;
+  transform: translateY(-1px);
+}
+
+.delete-btn {
+  background: #f44336;
+  color: white;
+}
+
+.delete-btn:hover {
+  background: #da190b;
+  transform: translateY(-1px);
+}
+
+.edit-note-section {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(33, 150, 243, 0.1);
+  border-radius: 8px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.save-edit-btn {
+  background: #4CAF50;
+  color: white;
+}
+
+.save-edit-btn:hover {
+  background: #45a049;
+  transform: translateY(-1px);
+}
+
+.cancel-edit-btn {
+  background: #9E9E9E;
+  color: white;
+}
+
+.cancel-edit-btn:hover {
+  background: #757575;
+  transform: translateY(-1px);
+}
+
+.new-note-section {
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .note-input {
   width: 100%;
   padding: 8px;
@@ -709,43 +890,35 @@ onMounted(async () => {
   margin-bottom: 10px;
   font-size: 13px;
 }
+
 .note-input:focus {
   outline: none;
   border-color: #FF9800;
 }
-.note-actions {
-  display: flex;
-  gap: 10px;
-}
-.save-note-btn, .delete-note-btn {
-  padding: 6px 12px;
+
+.save-note-btn {
+  width: 100%;
+  padding: 8px;
   border-radius: 6px;
   border: none;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 12px;
-}
-.save-note-btn {
   background: #4CAF50;
   color: white;
+  transition: all 0.3s ease;
+  font-size: 14px;
 }
+
 .save-note-btn:hover:not(:disabled) {
   background: #45a049;
   transform: translateY(-1px);
 }
+
 .save-note-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.delete-note-btn {
-  background: #f44336;
-  color: white;
-}
-.delete-note-btn:hover {
-  background: #da190b;
-  transform: translateY(-1px);
-}
-.loading-text, .empty-notes {
+
+.loading-text {
   text-align: center;
   opacity: 0.6;
   padding: 20px;

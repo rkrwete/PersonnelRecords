@@ -37,7 +37,7 @@
       datalabels: {
         color: '#003735',
         font: {
-          weight: 'bold',
+          family: 'Tektur',
           size: 14
         },
         anchor: 'center',
