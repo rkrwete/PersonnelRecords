@@ -12,7 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('email');
+            if (Schema::hasColumn('users', 'email')) {
+                $table->dropUnique('users_email_unique');
+                $table->dropColumn('email');
+            }
             $table->string('name')->unique()->change();
             $table->foreignId('role_id')->constrained();
             $table->foreignId('unit_id')->nullable()->constrained();
