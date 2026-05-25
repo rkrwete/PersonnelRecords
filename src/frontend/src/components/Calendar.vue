@@ -108,6 +108,23 @@
       </div>
     </div>
   </div>
+  <!-- Toast notifications -->
+  <Teleport to="body">
+    <div class="toast-container">
+      <transition-group name="toast">
+        <div
+          v-for="toast in toasts"
+          :key="toast.id"
+          class="toast"
+          :class="[`toast-${toast.type}`, { 'toast-visible': toast.visible }]"
+          @click="dismissToast(toast.id)"
+        >
+          <span class="toast-icon">{{ toast.type === "success" ? "✓" : "✕" }}</span>
+          <span class="toast-message">{{ toast.message }}</span>
+        </div>
+      </transition-group>
+    </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -124,6 +141,32 @@ const newNoteContent = ref("");
 const editNoteContent = ref("");
 const editingNoteId = ref(null);
 const saving = ref(false);
+
+// Toast
+const toasts = ref([]);
+let toastId = 0;
+
+function showToast(message, type = "success") {
+  const id = ++toastId;
+  toasts.value.push({ id, message, type, visible: false });
+  // Trigger enter animation on next tick
+  setTimeout(() => {
+    const t = toasts.value.find((t) => t.id === id);
+    if (t) t.visible = true;
+  }, 10);
+  // Auto-dismiss after 3s
+  setTimeout(() => dismissToast(id), 3200);
+}
+
+function dismissToast(id) {
+  const t = toasts.value.find((t) => t.id === id);
+  if (t) {
+    t.visible = false;
+    setTimeout(() => {
+      toasts.value = toasts.value.filter((t) => t.id !== id);
+    }, 350);
+  }
+}
 
 // Константы
 const weekdays = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
@@ -274,10 +317,10 @@ async function createNote() {
     if (updatedDay) {
       selectedDay.value = updatedDay;
     }
-    alert("Заметка добавлена");
+    showToast("Заметка добавлена");
   } catch (error) {
     console.error("Ошибка создания заметки:", error);
-    alert("Не удалось создать заметку");
+    showToast("Не удалось создать заметку", "error");
   } finally {
     saving.value = false;
   }
@@ -303,10 +346,10 @@ async function updateNote() {
     if (updatedDay) {
       selectedDay.value = updatedDay;
     }
-    alert("Заметка обновлена");
+    showToast("Заметка обновлена");
   } catch (error) {
     console.error("Ошибка обновления заметки:", error);
-    alert("Не удалось обновить заметку");
+    showToast("Не удалось обновить заметку", "error");
   } finally {
     saving.value = false;
   }
@@ -323,10 +366,10 @@ async function deleteNote(noteId) {
     if (updatedDay) {
       selectedDay.value = updatedDay;
     }
-    alert("Заметка удалена");
+    showToast("Заметка удалена");
   } catch (error) {
     console.error("Ошибка удаления заметки:", error);
-    alert("Не удалось удалить заметку");
+    showToast("Не удалось удалить заметку", "error");
   }
 }
 
@@ -894,5 +937,94 @@ onMounted(async () => {
   opacity: 0.6;
   padding: 20px;
   font-size: 12px;
+}
+
+/* Toast notifications */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-family: "Tektur", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 220px;
+  max-width: 340px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  pointer-events: all;
+  opacity: 0;
+  transform: translateX(30px);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.toast-success {
+  background: #003f3d;
+  border: 1px solid #009e97;
+  color: #fff;
+}
+
+.toast-error {
+  background: #3d1414;
+  border: 1px solid #ff5c5c;
+  color: #fff;
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.toast-success .toast-icon {
+  background: #009e97;
+  color: #003735;
+}
+
+.toast-error .toast-icon {
+  background: #ff5c5c;
+  color: #fff;
+}
+
+.toast-message {
+  flex: 1;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
 }
 </style>
