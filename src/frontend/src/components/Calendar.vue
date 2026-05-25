@@ -444,6 +444,8 @@ onMounted(async () => {
   box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
   scrollbar-width: thin;
 
+  overflow-y: auto;
+
   @media (max-width: 1000px) {
     width: 100%;
     height: 200px;
