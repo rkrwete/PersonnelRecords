@@ -86,6 +86,10 @@ const path = computed(() => {
   box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
 }
 
+.header-left {
+  flex-shrink: 0;
+}
+
 .header-left svg {
   height: 35px;
   width: 35px;
@@ -96,6 +100,16 @@ const path = computed(() => {
   font-weight: 900;
   margin: auto;
   font-size: 30px;
+
+  @media (max-width: 1300px) {
+    font-size: 25px;
+  }
+  @media (max-width: 1000px) {
+    font-size: 20px;
+  }
+  @media (max-width: 600px) {
+    font-size: 16px;
+  }
 }
 
 .header-right {
@@ -117,6 +131,13 @@ const path = computed(() => {
     background-color 0.5s ease,
     color 0.5s ease,
     transform 0.5s ease;
+
+  @media (max-width: 1300px) {
+    font-size: 14px;
+  }
+  @media (max-width: 1000px) {
+    font-size: 12px;
+  }
 }
 
 .lk:hover {
