@@ -1,5 +1,5 @@
 <template>
-  <Header />
+  <HeaderFirst />
   <div class="page">
     <div class="layout">
       <!-- Левая боковая панель - ЗАМЕТКИ -->
@@ -131,6 +131,7 @@
 import { ref, computed, onMounted, watch } from "vue";
 import api from "../services/api.js";
 import Header from "./Header.vue";
+import HeaderFirst from "./HeaderFirst.vue";
 
 // Состояние
 const currentDate = ref(new Date());
