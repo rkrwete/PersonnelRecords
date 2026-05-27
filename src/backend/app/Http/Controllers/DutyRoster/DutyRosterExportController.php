@@ -15,6 +15,32 @@ class DutyRosterExportController extends Controller
 {
     private DutyRosterService $service;
 
+    // ID статусов
+    private const STATUS_IDS = [
+        // Вне кафедры
+        'NARYAD' => 2,                    // Наряд
+        'LAZARET' => 3,                   // Лазарет
+        'OSVOBOZHDENIE_PO_BOLEZNI' => 17, // Освобождены по болезни
+        
+        // Вне академии
+        'GOSPITAL' => 4,                  // Госпиталь
+        'OTPUSK' => 5,                    // Отпуск
+        'KOMANDIROVKA' => 6,              // Командировка
+        'UVOLNENIE' => 7,                 // Увольнение
+        'SUTOCHNOE_UVOLNENIE' => 8,       // Суточное увольнение
+        'AREST' => 9,                     // Арест
+        'SOCH' => 10,                     // СОЧ
+        'PROCHEE' => 11,                  // Прочее
+        'GARNIZON' => 18,                 // Гарнизон
+        
+        // На лицо
+        'NALITSO_123' => 12,              // 123 в/г
+        'NALITSO_84' => 13,               // 84 в/г
+        'NALITSO_6' => 14,                // 6 в/г
+        'NALITSO_UC_IT' => 15,            // УЦ (ИТ)
+        'NALITSO_DR' => 16,               // Др. прич.
+    ];
+
     public function __construct(DutyRosterService $service)
     {
         $this->service = $service;
@@ -25,335 +51,403 @@ class DutyRosterExportController extends Controller
         return ($value === null || $value === '' || $value === false) ? '0' : (string) $value;
     }
 
-    private function setVerticalText($sheet, string $cell): void
+    /**
+     * Статистика для одной строки (категории личного состава)
+     */
+    private function getRowStats($personnel, int $staffCount, string $categoryName): array
     {
-        $sheet->getStyle($cell)->getAlignment()->setTextRotation(90);
+        // На лицо (сумма подстатусов)
+        $nalitso_123 = $personnel->where('current_status_id', self::STATUS_IDS['NALITSO_123'])->count();
+        $nalitso_84 = $personnel->where('current_status_id', self::STATUS_IDS['NALITSO_84'])->count();
+        $nalitso_6 = $personnel->where('current_status_id', self::STATUS_IDS['NALITSO_6'])->count();
+        $nalitso_uc_it = $personnel->where('current_status_id', self::STATUS_IDS['NALITSO_UC_IT'])->count();
+        $nalitso_dr = $personnel->where('current_status_id', self::STATUS_IDS['NALITSO_DR'])->count();
+        $nalitso_total = $nalitso_123 + $nalitso_84 + $nalitso_6 + $nalitso_uc_it + $nalitso_dr;
+
+        // Вне кафедры
+        $naryad_v_akademii = $personnel->where('current_status_id', self::STATUS_IDS['NARYAD'])->count();
+        $lazaret = $personnel->where('current_status_id', self::STATUS_IDS['LAZARET'])->count();
+        $osvobozhdenie_po_bolezni = $personnel->where('current_status_id', self::STATUS_IDS['OSVOBOZHDENIE_PO_BOLEZNI'])->count();
+        $vne_kafedry_total = $naryad_v_akademii + $lazaret + $osvobozhdenie_po_bolezni;
+
+        // Вне академии
+        $otpusk = $personnel->where('current_status_id', self::STATUS_IDS['OTPUSK'])->count();
+        $garnizon = $personnel->where('current_status_id', self::STATUS_IDS['GARNIZON'])->count();
+        $gospital = $personnel->where('current_status_id', self::STATUS_IDS['GOSPITAL'])->count();
+        $komandirovka = $personnel->where('current_status_id', self::STATUS_IDS['KOMANDIROVKA'])->count();
+        
+        $prochee = $personnel->where('current_status_id', self::STATUS_IDS['UVOLNENIE'])->count()
+                  + $personnel->where('current_status_id', self::STATUS_IDS['SUTOCHNOE_UVOLNENIE'])->count()
+                  + $personnel->where('current_status_id', self::STATUS_IDS['AREST'])->count()
+                  + $personnel->where('current_status_id', self::STATUS_IDS['SOCH'])->count()
+                  + $personnel->where('current_status_id', self::STATUS_IDS['PROCHEE'])->count();
+        
+        $vne_akademii_total = $otpusk + $garnizon + $gospital + $komandirovka + $prochee;
+
+        return [
+            'name'                => $categoryName,
+            'staff'               => $staffCount,
+            'total'               => $personnel->count(),
+            'nalitso_total'       => $nalitso_total,
+            'nalitso_123'         => $nalitso_123,
+            'nalitso_84'          => $nalitso_84,
+            'nalitso_6'           => $nalitso_6,
+            'nalitso_uc_it'       => $nalitso_uc_it,
+            'nalitso_dr'          => $nalitso_dr,
+            'naryad_v_akademii'   => $naryad_v_akademii,
+            'lazaret'             => $lazaret,
+            'osvobozhdenie_po_bolezni' => $osvobozhdenie_po_bolezni,
+            'vne_kafedry_total'   => $vne_kafedry_total,
+            'otpusk'              => $otpusk,
+            'garnizon'            => $garnizon,
+            'gospital'            => $gospital,
+            'komandirovka'        => $komandirovka,
+            'prochee'             => $prochee,
+            'vne_akademii_total'  => $vne_akademii_total,
+        ];
     }
 
-    /**
-     * Группировка по РАНГАМ (для научной роты)
-     */
+    // ---------- Группировка по РАНГАМ (научная рота) ----------
     private function getStatsByRanks(Unit $unit): array
     {
         $rankCategories = [
-            'officers' => ['ranks' => range(10, 20), 'name' => 'Офицеры'],
-            'praporshchiks' => ['ranks' => [8, 9], 'name' => 'Прапорщики'],
-            'sergeants' => ['ranks' => range(5, 7), 'name' => 'Сержанты'],
-            'soldiers' => ['ranks' => range(1, 4), 'name' => 'Солдаты'],
+            'officers'     => ['ranks' => range(10, 20), 'name' => 'Офицеры'],
+            'praporshchiks'=> ['ranks' => [8, 9], 'name' => 'Прапорщики'],
+            'sergeants'    => ['ranks' => range(5, 7), 'name' => 'Сержанты'],
+            'soldiers'     => ['ranks' => range(1, 4), 'name' => 'Солдаты'],
         ];
-
         $stats = [];
-
-        foreach ($rankCategories as $category) {
-            $personnel = $unit->personnel->filter(function ($p) use ($category) {
-                return $p->rank && in_array($p->rank->id, $category['ranks']);
-            });
-
-            $staff = $this->service->getStaffCountByRankCategory($unit->id, $category['ranks']);
-            $total = $personnel->count();
-            $present = $personnel->where('current_status_id', 1)->count();
-            $duty = $personnel->where('current_status_id', 5)->count();
-            $mission = $personnel->where('current_status_id', 6)->count();
-            $leave = $personnel->where('current_status_id', 4)->count();
-            $sick = $personnel->filter(fn($p) => in_array($p->current_status_id, [2, 3]))->count();
-            $dismissed = $personnel->where('current_status_id', 9)->count();
-            $other = $personnel->filter(fn($p) => in_array($p->current_status_id, [7, 8]))->count();
-
-            $stats[] = [
-                'name' => $category['name'],
-                'staff' => $staff,
-                'total' => $total,
-                'present' => $present,
-                'duty' => $duty,
-                'mission' => $mission,
-                'leave' => $leave,
-                'sick' => $sick,
-                'dismissed' => $dismissed,
-                'other' => $other,
-            ];
+        foreach ($rankCategories as $cat) {
+            $personnel = $unit->personnel->filter(fn($p) => $p->rank && in_array($p->rank->id, $cat['ranks']));
+            $staff = $this->service->getStaffCountByRankCategory($unit->id, $cat['ranks']);
+            $stats[] = $this->getRowStats($personnel, $staff, $cat['name']);
         }
-
         return $stats;
     }
 
-    /**
-     * Список отсутствующих по РАНГАМ (для научной роты)
-     */
-    private function getAbsentListByRanks(Unit $unit): array
-    {
-        $rankCategories = [
-            'officers' => ['ranks' => range(10, 20), 'name' => 'Офицеры'],
-            'praporshchiks' => ['ranks' => [8, 9], 'name' => 'Прапорщики'],
-            'sergeants' => ['ranks' => range(5, 7), 'name' => 'Сержанты'],
-            'soldiers' => ['ranks' => range(1, 4), 'name' => 'Солдаты'],
-        ];
-
-        $absentList = [];
-
-        foreach ($rankCategories as $category) {
-            $personnel = $unit->personnel->filter(function ($p) use ($category) {
-                return $p->rank && in_array($p->rank->id, $category['ranks']);
-            });
-
-            foreach ($personnel as $p) {
-                if ($p->current_status_id != 1) {
-                    $absentList[] = [
-                        'rank' => $p->rank->name ?? '',
-                        'fio' => trim($p->last_name . ' ' . $p->first_name . ' ' . $p->middle_name),
-                        'category' => $category['name'],
-                        'reason' => $p->currentStatus->name ?? 'Неизвестно'
-                    ];
-                }
-            }
-        }
-
-        return $absentList;
-    }
-
-    /**
-     * Группировка по КАТЕГОРИЯМ (для остальных подразделений)
-     */
+    // ---------- Группировка по КАТЕГОРИЯМ должностей ----------
     private function getStatsByCategories(Unit $unit): array
     {
         $stats = [];
-
         foreach ($unit->categories as $category) {
             $positionIds = $category->positions->pluck('id')->toArray();
-            $personnel = $unit->personnel->filter(function ($p) use ($positionIds) {
-                return in_array($p->position_id, $positionIds);
-            });
-
+            $personnel = $unit->personnel->filter(fn($p) => in_array($p->position_id, $positionIds));
             $staff = $category->positions->sum('count');
-            $total = $personnel->count();
-            $present = $personnel->where('current_status_id', 1)->count();
-            $duty = $personnel->where('current_status_id', 5)->count();
-            $mission = $personnel->where('current_status_id', 6)->count();
-            $leave = $personnel->where('current_status_id', 4)->count();
-            $sick = $personnel->filter(fn($p) => in_array($p->current_status_id, [2, 3]))->count();
-            $dismissed = $personnel->where('current_status_id', 9)->count();
-            $other = $personnel->filter(fn($p) => in_array($p->current_status_id, [7, 8]))->count();
-
-            $stats[] = [
-                'name' => $category->name,
-                'staff' => $staff,
-                'total' => $total,
-                'present' => $present,
-                'duty' => $duty,
-                'mission' => $mission,
-                'leave' => $leave,
-                'sick' => $sick,
-                'dismissed' => $dismissed,
-                'other' => $other,
-            ];
+            $stats[] = $this->getRowStats($personnel, $staff, $category->name);
         }
-
         return $stats;
     }
 
     /**
-     * Список отсутствующих по КАТЕГОРИЯМ (для остальных подразделений)
+     * Получить данные для оборотной стороны
+     * Возвращает: personnel_list - массив всех сотрудников с информацией
      */
-    private function getAbsentListByCategories(Unit $unit): array
+    private function getReverseSideData(Unit $unit): array
     {
-        $absentList = [];
-
-        foreach ($unit->categories as $category) {
-            $positionIds = $category->positions->pluck('id')->toArray();
-            $personnel = $unit->personnel->filter(function ($p) use ($positionIds) {
-                return in_array($p->position_id, $positionIds);
-            });
-
-            foreach ($personnel as $p) {
-                if ($p->current_status_id != 1) {
-                    $absentList[] = [
-                        'rank' => $p->rank->name ?? '',
-                        'fio' => trim($p->last_name . ' ' . $p->first_name . ' ' . $p->middle_name),
-                        'category' => $category->name,
-                        'reason' => $p->currentStatus->name ?? 'Неизвестно'
-                    ];
-                }
+        $nalitsoStatusIds = [
+            self::STATUS_IDS['NALITSO_123'],
+            self::STATUS_IDS['NALITSO_84'],
+            self::STATUS_IDS['NALITSO_6'],
+            self::STATUS_IDS['NALITSO_UC_IT'],
+            self::STATUS_IDS['NALITSO_DR'],
+        ];
+        
+        $personnelList = [];
+        $total = 0;
+        $present = 0;
+        
+        foreach ($unit->personnel as $p) {
+            // Определяем категорию
+            $categoryName = '';
+            if ($p->rank) {
+                $rid = $p->rank->id;
+                if ($rid >= 10) $categoryName = 'Офицеры';
+                elseif ($rid >= 8) $categoryName = 'Прапорщики';
+                elseif ($rid >= 5) $categoryName = 'Сержанты';
+                else $categoryName = 'Солдаты';
+            } else {
+                $categoryName = $p->position->category->name ?? '';
             }
+            
+            // Определяем причину отсутствия
+            $isPresent = in_array($p->current_status_id, $nalitsoStatusIds);
+            $reason = $isPresent ? '+' : ($p->currentStatus->name ?? 'Неизвестно');
+            
+            if ($isPresent) {
+                $present++;
+            }
+            $total++;
+            
+            $personnelList[] = [
+                'category' => $categoryName,
+                'rank' => $p->rank->name ?? '',
+                'fio' => trim($p->last_name . ' ' . $p->first_name . ' ' . $p->middle_name),
+                'reason' => $reason,
+                'is_present' => $isPresent,
+            ];
         }
-
-        return $absentList;
+        
+        return [
+            'personnel' => $personnelList,
+            'total' => $total,
+            'present' => $present,
+        ];
     }
 
+    // ==================== ОСНОВНОЙ МЕТОД ЭКСПОРТА ====================
     public function export($unitId)
     {
         try {
             $unit = Unit::with(['personnel.rank', 'personnel.currentStatus', 'categories.positions'])->findOrFail($unitId);
 
-            // ==================== ВЫБИРАЕМ СПОСОБ ГРУППИРОВКИ ====================
-            // Для научной роты (id 42) используем группировку по РАНГАМ
-            // Для всех остальных - группировку по КАТЕГОРИЯМ
-            
             $isScientificCompany = ($unit->id == 42 || $unit->name == 'Научная рота');
-            
-            if ($isScientificCompany) {
-                $stats = $this->getStatsByRanks($unit);
-                $absentList = $this->getAbsentListByRanks($unit);
-            } else {
-                $stats = $this->getStatsByCategories($unit);
-                $absentList = $this->getAbsentListByCategories($unit);
-            }
+            $stats = $isScientificCompany ? $this->getStatsByRanks($unit) : $this->getStatsByCategories($unit);
+            $reverseData = $this->getReverseSideData($unit);
 
-            // Считаем итоги
-            $totals = ['staff' => 0, 'total' => 0, 'present' => 0, 'duty' => 0, 'mission' => 0, 'leave' => 0, 'sick' => 0, 'dismissed' => 0, 'other' => 0];
-
+            // Подсчёт итогов для первой страницы
+            $totals = [
+                'staff' => 0, 'total' => 0,
+                'nalitso_total' => 0,
+                'nalitso_123' => 0, 'nalitso_84' => 0, 'nalitso_6' => 0, 'nalitso_uc_it' => 0, 'nalitso_dr' => 0,
+                'naryad_v_akademii' => 0, 'lazaret' => 0, 'osvobozhdenie_po_bolezni' => 0,
+                'otpusk' => 0, 'garnizon' => 0, 'gospital' => 0, 'komandirovka' => 0, 'prochee' => 0,
+            ];
             foreach ($stats as $stat) {
-                $totals['staff'] += $stat['staff'];
-                $totals['total'] += $stat['total'];
-                $totals['present'] += $stat['present'];
-                $totals['duty'] += $stat['duty'];
-                $totals['mission'] += $stat['mission'];
-                $totals['leave'] += $stat['leave'];
-                $totals['sick'] += $stat['sick'];
-                $totals['dismissed'] += $stat['dismissed'];
-                $totals['other'] += $stat['other'];
+                foreach ($totals as $key => $value) {
+                    if (isset($stat[$key])) $totals[$key] += $stat[$key];
+                }
             }
 
-            // ==================== EXCEL ====================
+            // ==================== ЛИСТ 1: СТРОЕВАЯ ЗАПИСКА ====================
             $spreadsheet = new Spreadsheet();
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Строевая записка');
 
-            // Заголовки
+            // Заголовок
             $sheet->setCellValue('A1', 'СТРОЕВАЯ ЗАПИСКА');
-            $sheet->mergeCells('A1:K1');
+            $sheet->mergeCells('A1:R1');
             $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->setCellValue('A2', $unit->name);
-            $sheet->mergeCells('A2:K2');
+            $sheet->mergeCells('A2:R2');
             $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->setCellValue('A3', 'на "' . date('d.m.Y') . '"');
-            $sheet->mergeCells('A3:K3');
+            $sheet->mergeCells('A3:R3');
             $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            // Шапка таблицы
-            $headers = ['№', 'Категория', 'По штату', 'По списку', 'Налицо', 'Наряд', 'Командировка', 'Отпуск', 'Больные', 'Увольнение', 'Прочее'];
-            $cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+            // --- Двухстрочная шапка ---
+            $sheet->setCellValue('A5', '№ п/п');
+            $sheet->setCellValue('B5', 'Подразделение');
+            $sheet->setCellValue('C5', 'По штату');
+            $sheet->setCellValue('D5', 'По списку');
+            $sheet->mergeCells('A5:A6');
+            $sheet->mergeCells('B5:B6');
+            $sheet->mergeCells('C5:C6');
+            $sheet->mergeCells('D5:D6');
 
-            foreach ($headers as $i => $header) {
-                $sheet->setCellValue($cols[$i] . '5', $header);
-                $sheet->getStyle($cols[$i] . '5')->getFont()->setBold(true);
-                $sheet->getStyle($cols[$i] . '5')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet->getColumnDimension($cols[$i])->setAutoSize(true);
+            $sheet->setCellValue('E5', 'На лицо');
+            $sheet->mergeCells('E5:J5');
+            $nalitsoSub = ['всего', '123 в/г', '84 в/г', '6 в/г', 'УЦ (ИТ)', 'Др. прич.'];
+            $col = 'E';
+            foreach ($nalitsoSub as $sub) {
+                $sheet->setCellValue($col . '6', $sub);
+                $col++;
             }
 
-            // Вертикальная ориентация для заголовков (кроме первых двух)
-            for ($i = 2; $i < count($headers); $i++) {
-                $this->setVerticalText($sheet, $cols[$i] . '5');
+            $sheet->setCellValue('K5', 'Вне кафедры');
+            $sheet->mergeCells('K5:M5');
+            $sheet->setCellValue('K6', 'Наряд');
+            $sheet->setCellValue('L6', 'Лазарет');
+            $sheet->setCellValue('M6', 'Освобождены по болезни');
+
+            $sheet->setCellValue('N5', 'Находятся вне академии');
+            $sheet->mergeCells('N5:R5');
+            $vneSub = ['Отпуск', 'Гарнизон', 'Госпиталь', 'Командировка', 'Прочее'];
+            $col = 'N';
+            foreach ($vneSub as $sub) {
+                $sheet->setCellValue($col . '6', $sub);
+                $col++;
             }
+
+            $headerStyle = [
+                'font'      => ['bold' => true],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
+                'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+            ];
+            $sheet->getStyle('A5:R6')->applyFromArray($headerStyle);
+            $sheet->getStyle('A5:R5')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('D3D3D3');
 
             // Данные
-            $row = 6;
+            $row = 7;
             $num = 1;
-
             foreach ($stats as $stat) {
                 $sheet->setCellValue('A' . $row, $num++);
                 $sheet->setCellValue('B' . $row, $stat['name']);
                 $sheet->setCellValue('C' . $row, $this->fillEmpty($stat['staff']));
                 $sheet->setCellValue('D' . $row, $this->fillEmpty($stat['total']));
-                $sheet->setCellValue('E' . $row, $this->fillEmpty($stat['present']));
-                $sheet->setCellValue('F' . $row, $this->fillEmpty($stat['duty']));
-                $sheet->setCellValue('G' . $row, $this->fillEmpty($stat['mission']));
-                $sheet->setCellValue('H' . $row, $this->fillEmpty($stat['leave']));
-                $sheet->setCellValue('I' . $row, $this->fillEmpty($stat['sick']));
-                $sheet->setCellValue('J' . $row, $this->fillEmpty($stat['dismissed']));
-                $sheet->setCellValue('K' . $row, $this->fillEmpty($stat['other']));
+                $sheet->setCellValue('E' . $row, $this->fillEmpty($stat['nalitso_total']));
+                $sheet->setCellValue('F' . $row, $this->fillEmpty($stat['nalitso_123']));
+                $sheet->setCellValue('G' . $row, $this->fillEmpty($stat['nalitso_84']));
+                $sheet->setCellValue('H' . $row, $this->fillEmpty($stat['nalitso_6']));
+                $sheet->setCellValue('I' . $row, $this->fillEmpty($stat['nalitso_uc_it']));
+                $sheet->setCellValue('J' . $row, $this->fillEmpty($stat['nalitso_dr']));
+                $sheet->setCellValue('K' . $row, $this->fillEmpty($stat['naryad_v_akademii']));
+                $sheet->setCellValue('L' . $row, $this->fillEmpty($stat['lazaret']));
+                $sheet->setCellValue('M' . $row, $this->fillEmpty($stat['osvobozhdenie_po_bolezni']));
+                $sheet->setCellValue('N' . $row, $this->fillEmpty($stat['otpusk']));
+                $sheet->setCellValue('O' . $row, $this->fillEmpty($stat['garnizon']));
+                $sheet->setCellValue('P' . $row, $this->fillEmpty($stat['gospital']));
+                $sheet->setCellValue('Q' . $row, $this->fillEmpty($stat['komandirovka']));
+                $sheet->setCellValue('R' . $row, $this->fillEmpty($stat['prochee']));
                 $row++;
             }
 
-            // Итого
+            // Итоговая строка
             $sheet->setCellValue('B' . $row, 'ИТОГО');
             $sheet->getStyle('B' . $row)->getFont()->setBold(true);
             $sheet->setCellValue('C' . $row, $this->fillEmpty($totals['staff']));
             $sheet->setCellValue('D' . $row, $this->fillEmpty($totals['total']));
-            $sheet->setCellValue('E' . $row, $this->fillEmpty($totals['present']));
-            $sheet->setCellValue('F' . $row, $this->fillEmpty($totals['duty']));
-            $sheet->setCellValue('G' . $row, $this->fillEmpty($totals['mission']));
-            $sheet->setCellValue('H' . $row, $this->fillEmpty($totals['leave']));
-            $sheet->setCellValue('I' . $row, $this->fillEmpty($totals['sick']));
-            $sheet->setCellValue('J' . $row, $this->fillEmpty($totals['dismissed']));
-            $sheet->setCellValue('K' . $row, $this->fillEmpty($totals['other']));
+            $sheet->setCellValue('E' . $row, $this->fillEmpty($totals['nalitso_total']));
+            $sheet->setCellValue('F' . $row, $this->fillEmpty($totals['nalitso_123']));
+            $sheet->setCellValue('G' . $row, $this->fillEmpty($totals['nalitso_84']));
+            $sheet->setCellValue('H' . $row, $this->fillEmpty($totals['nalitso_6']));
+            $sheet->setCellValue('I' . $row, $this->fillEmpty($totals['nalitso_uc_it']));
+            $sheet->setCellValue('J' . $row, $this->fillEmpty($totals['nalitso_dr']));
+            $sheet->setCellValue('K' . $row, $this->fillEmpty($totals['naryad_v_akademii']));
+            $sheet->setCellValue('L' . $row, $this->fillEmpty($totals['lazaret']));
+            $sheet->setCellValue('M' . $row, $this->fillEmpty($totals['osvobozhdenie_po_bolezni']));
+            $sheet->setCellValue('N' . $row, $this->fillEmpty($totals['otpusk']));
+            $sheet->setCellValue('O' . $row, $this->fillEmpty($totals['garnizon']));
+            $sheet->setCellValue('P' . $row, $this->fillEmpty($totals['gospital']));
+            $sheet->setCellValue('Q' . $row, $this->fillEmpty($totals['komandirovka']));
+            $sheet->setCellValue('R' . $row, $this->fillEmpty($totals['prochee']));
 
-            // Границы
-            $sheet->getStyle('A5:K' . $row)->applyFromArray([
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
-            ]);
+            $lastRow = $row;
+            $sheet->getStyle('A7:R' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('B7:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            $sheet->getStyle('A7:R' . $lastRow)->applyFromArray(['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]]);
 
-            $sheet->getStyle('A5:K5')->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setRGB('D3D3D3');
-
-            // Центрирование чисел
-            $sheet->getStyle('C6:K' . $row)
-                ->getAlignment()
-                ->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-            // ==================== ОБОРОТНАЯ СТОРОНА ====================
+            // ==================== ЛИСТ 2: ОБОРОТНАЯ СТОРОНА ====================
             $sheet2 = $spreadsheet->createSheet();
-            $sheet2->setTitle('Отсутствующие');
-
-            $sheet2->setCellValue('A1', 'СПИСОК ОТСУТСТВУЮЩЕГО ЛИЧНОГО СОСТАВА');
-            $sheet2->mergeCells('A1:E1');
+            $sheet2->setTitle('Оборотная сторона');
+            
+            // Заголовок
+            $sheet2->setCellValue('A1', 'СПИСОК ЛИЧНОГО СОСТАВА');
+            $sheet2->mergeCells('A1:E2');
             $sheet2->getStyle('A1')->getFont()->setBold(true)->setSize(14);
             $sheet2->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-            $sheet2->setCellValue('A2', $unit->name);
-            $sheet2->mergeCells('A2:E2');
-            $sheet2->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-
-            $headers2 = ['№ п/п', 'Звание', 'ФИО', 'Категория', 'Причина'];
-            $cols2 = ['A', 'B', 'C', 'D', 'E'];
-
+            
+            $sheet2->mergeCells('G1:K2');
+            $sheet2->getStyle('G1')->getFont()->setBold(true)->setSize(14);
+            $sheet2->getStyle('G1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            
+            // Заголовки колонок
+            $headers2 = ['№ п/п', 'Категория', 'Звание', 'ФИО', 'Причина отсутствия'];
+            
+            // ПЕРВАЯ КОЛОНКА (A-E) - 25 строк
+            $col1StartRow = 3;
+            $col1EndRow = 32; // 25 строк (3-27)
+            
+            // ВТОРАЯ КОЛОНКА (G-K) - 50 строк
+            $col2StartRow = 3;
+            $col2EndRow = 52; // 50 строк (3-52)
+            
+            // Заголовки для первой колонки
             foreach ($headers2 as $i => $header) {
-                $sheet2->setCellValue($cols2[$i] . '4', $header);
-                $sheet2->getStyle($cols2[$i] . '4')->getFont()->setBold(true);
-                $sheet2->getStyle($cols2[$i] . '4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet2->getColumnDimension($cols2[$i])->setAutoSize(true);
+                $col = chr(65 + $i);
+                $sheet2->setCellValue($col . $col1StartRow, $header);
+                $sheet2->getStyle($col . $col1StartRow)->getFont()->setBold(true);
+                $sheet2->getStyle($col . $col1StartRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet2->getColumnDimension($col)->setWidth(15);
             }
-
-            $row2 = 5;
+            
+            // Заголовки для второй колонки
+            foreach ($headers2 as $i => $header) {
+                $col = chr(71 + $i); // G=71, H=72, I=73, J=74, K=75
+                $sheet2->setCellValue($col . $col2StartRow, $header);
+                $sheet2->getStyle($col . $col2StartRow)->getFont()->setBold(true);
+                $sheet2->getStyle($col . $col2StartRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $sheet2->getColumnDimension($col)->setWidth(15);
+            }
+            
+            // Заполняем ПЕРВУЮ колонку (25 строк)
+            $personnelList = $reverseData['personnel'];
+            $totalCount = count($personnelList);
+            
+            $row1 = $col1StartRow + 1;
+            $num1 = 1;
+            
+            for ($i = 0; $i < 30 && $i < $totalCount; $i++) {
+                $person = $personnelList[$i];
+                $sheet2->setCellValue('A' . $row1, $num1++);
+                $sheet2->setCellValue('B' . $row1, $person['category']);
+                $sheet2->setCellValue('C' . $row1, $person['rank']);
+                $sheet2->setCellValue('D' . $row1, $person['fio']);
+                $sheet2->setCellValue('E' . $row1, $person['reason']);
+                $row1++;
+            }
+            
+            // Заполняем ВТОРУЮ колонку (50 строк)
+            $row2 = $col2StartRow + 1;
             $num2 = 1;
-
-            if (empty($absentList)) {
-                $sheet2->setCellValue('A' . $row2, 'Все военнослужащие находятся в строю');
-                $sheet2->mergeCells('A' . $row2 . ':E' . $row2);
-                $sheet2->getStyle('A' . $row2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet2->getStyle('A' . $row2)->getFont()->setItalic(true)->getColor()->setRGB('808080');
-            } else {
-                foreach ($absentList as $absent) {
-                    $sheet2->setCellValue('A' . $row2, $num2++);
-                    $sheet2->setCellValue('B' . $row2, $absent['rank']);
-                    $sheet2->setCellValue('C' . $row2, $absent['fio']);
-                    $sheet2->setCellValue('D' . $row2, $absent['category']);
-                    $sheet2->setCellValue('E' . $row2, $absent['reason']);
-                    $row2++;
-                }
-
-            $sheet2->getStyle('A4:E' . ($row2 - 1))->applyFromArray([
+            
+            for ($i = 25; $i < 25 + 50 && $i < $totalCount; $i++) {
+                $person = $personnelList[$i];
+                $sheet2->setCellValue('G' . $row2, $num2++);
+                $sheet2->setCellValue('H' . $row2, $person['category']);
+                $sheet2->setCellValue('I' . $row2, $person['rank']);
+                $sheet2->setCellValue('J' . $row2, $person['fio']);
+                $sheet2->setCellValue('K' . $row2, $person['reason']);
+                $row2++;
+            }
+            
+            // Информация под первой колонкой
+            $infoRow1 = $col1EndRow + 2;
+            $sheet2->setCellValue('A' . $infoRow1, 'По списку:');
+            $sheet2->setCellValue('B' . $infoRow1, $reverseData['total']);
+            $sheet2->getStyle('A' . $infoRow1)->getFont()->setBold(true);
+            
+            $infoRow2 = $infoRow1 + 1;
+            $sheet2->setCellValue('A' . $infoRow2, 'На лицо:');
+            $sheet2->setCellValue('B' . $infoRow2, $reverseData['present']);
+            $sheet2->getStyle('A' . $infoRow2)->getFont()->setBold(true);
+            
+            // Применяем границы для оборотной стороны
+            $borderStyle = [
                 'borders' => [
                     'allBorders' => [
-                        'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN
-                    ]
-                ]
-            ]);
+                        'borderStyle' => Border::BORDER_THIN,
+                    ],
+                ],
+            ];
+            
+            // Границы для первой колонки
+            if ($row1 > $col1StartRow + 1) {
+                $sheet2->getStyle('A' . ($col1StartRow + 1) . ':E' . ($row1 - 1))->applyFromArray($borderStyle);
             }
-
-            // Центрирование номера
-            $sheet2->getStyle('A5:A' . ($row2 - 1))->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
-
-            // Сохраняем
+            
+            // Границы для второй колонки
+            if ($row2 > $col2StartRow + 1) {
+                $sheet2->getStyle('G' . ($col2StartRow + 1) . ':K' . ($row2 - 1))->applyFromArray($borderStyle);
+            }
+            
+            // Центрирование номеров
+            $sheet2->getStyle('A' . ($col1StartRow + 1) . ':A' . ($row1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getStyle('G' . ($col2StartRow + 1) . ':G' . ($row2 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            
+            // Автоширина для всех колонок
+            foreach (range('A', 'K') as $col) {
+                $sheet2->getColumnDimension($col)->setAutoSize(true);
+            }
+            
+            // ==================== СОХРАНЕНИЕ И ОТДАЧА ====================
             $filename = 'stroevaya_' . $unit->id . '_' . date('Y-m-d_H-i-s') . '.xlsx';
             $path = storage_path('app/public/' . $filename);
-
             if (!file_exists(storage_path('app/public'))) {
                 mkdir(storage_path('app/public'), 0777, true);
             }
-
             $writer = new Xlsx($spreadsheet);
             $writer->save($path);
 

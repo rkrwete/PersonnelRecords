@@ -18,7 +18,9 @@ class DatabaseSeeder extends Seeder
             StatusSeeder::class,
             UnitSeeder::class,
             UserSeeder::class,
-            ScientificCompanySeeder::class,
+            MemorableDatesSeeder::class, // сидер на памятные даты
+            //CategorySeeder::class,
+            //ScientificSquadSeeder::class,
         ]);
     }
 }

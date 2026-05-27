@@ -61,5 +61,3 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/duty-roster/export/{unitId}', [DutyRosterExportController::class, 'export']);
 // получение строевой записки на академию
 Route::get('/academic-duty-roster/export/{unitId?}', [AcademicDutyRosterController::class, 'export']);
-
-
