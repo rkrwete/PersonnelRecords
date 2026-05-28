@@ -4,7 +4,7 @@
 
   const path = computed(() => {
     const userData = window.localStorage.getItem('user')
-    return userData ? '/lichnyy-kabinet' : '/avtorizaciya'
+    return userData ? (JSON.parse(userData).role_id == 4 ? '/admin' : '/lichnyy-kabinet') : '/avtorizaciya'
   })
 </script>
 
@@ -19,9 +19,6 @@
       <router-link class="lk" to="/calendar">
         Календарь
       </router-link>
-    </div>
-
-    <div class="header-right">
       <router-link class="lk" :to="path">
         Личный кабинет
       </router-link>

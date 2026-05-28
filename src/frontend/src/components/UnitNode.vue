@@ -1,21 +1,16 @@
 <template>
-  <div class="node"
-       @mouseenter="onEnter"
-       @mouseleave="onLeave"
-  >
+  <div class="node" @mouseenter="onEnter" @mouseleave="onLeave">
     <div
         class="unit"
         :class="{ active: selected?.id === node.id }"
-        @click="emit('select', node)"
+        @click="$emit('select', node)"
     >
       {{ node.name }}
     </div>
-    <Teleport to="body">
+    
     <div v-if="open && hasChildren"
          class="children"
-         :style="dropdownStyle"
-         @mouseenter="onDropdownEnter"
-         @mouseleave="onDropdownLeave">
+         :style="dropdownStyle">
       <UnitNode
           v-for="c in node.children"
           :key="c.id"
@@ -24,15 +19,11 @@
           @select="$emit('select', $event)"
       />
     </div>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-const isHoveringNode = ref(false)
-const isHoveringDropdown = ref(false)
-const dropdownStyle = ref({})
 
 defineOptions({
   name: 'UnitNode'
@@ -46,49 +37,32 @@ const props = defineProps({
 const emit = defineEmits(['select'])
 
 const open = ref(false)
+const dropdownStyle = ref({})
+let timeout
 
 const hasChildren = computed(() => {
   return props.node.children && props.node.children.length > 0
 })
 
-
-let timeout
-
 function onEnter(e) {
-  isHoveringNode.value = true
-  if (hasChildren.value) open.value = true
+  clearTimeout(timeout)
+  if (!hasChildren.value) return
 
-  const rect = e.currentTarget.getBoundingClientRect()
+  const unitEl = e.currentTarget.querySelector('.unit')
+  const rect = unitEl.getBoundingClientRect()
 
   dropdownStyle.value = {
     position: 'fixed',
     top: rect.top + 'px',
-    left: rect.right + 'px'
+    left: (rect.right - 2) + 'px' // Нахлест в 2px, чтобы не было "мертвой зоны" при переводе мыши
   }
 
   open.value = true
 }
 
 function onLeave() {
-  isHoveringNode.value = false
-  scheduleClose()
-}
-
-function onDropdownEnter() {
-  isHoveringDropdown.value = true
-}
-
-function onDropdownLeave() {
-  isHoveringDropdown.value = false
-  scheduleClose()
-}
-
-function scheduleClose() {
-  clearTimeout(timeout)
   timeout = setTimeout(() => {
-    if (!isHoveringNode.value && !isHoveringDropdown.value) {
-      open.value = false
-    }
+    open.value = false
   }, 150)
 }
 </script>
@@ -118,13 +92,11 @@ function scheduleClose() {
   }
 
   .children {
-    position: absolute;
-    top: 0;
-    left: 100%;
+    z-index: 9999;
     min-width: 220px;
-    background: var(--bg);
+    background: var(--bg, #2a2a2a); 
     border-radius: 10px;
-    z-index: 100;
     box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+    padding: 5px 0;
   }
 </style>

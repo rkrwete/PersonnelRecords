@@ -18,7 +18,8 @@ class Personnel extends Model {
         'first_name',
         'last_name',
         'middle_name',
-        'position_id'
+        'position_id',
+        'photo_path'
     ];
 
     public function unit(): BelongsTo {

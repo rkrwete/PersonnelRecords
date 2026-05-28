@@ -67,6 +67,18 @@
     background: rgba(255, 255, 255, 0.2);
     text-align: center;
   }
+
+  .vertical-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    display: inline-block;
+    white-space: normal; 
+    word-wrap: break-word;
+    max-height: 125px; 
+    text-align: left;
+    line-height: 1.2; 
+    margin: 0 auto;
+  }
 </style>
 
 <template>
@@ -89,31 +101,31 @@
 
       <table class="table">
         <colgroup>
-          <col style="width: 70px">
-          <col style="">
-          <col style="width: 70px">
-          <col style="width: 70px">
-          <col style="width: 60px">
-          <col style="width: 50px">
-          <col style="width: 60px">
-          <col style="width: 70px">
-          <col style="width: 50px">
           <col style="width: 100px">
-          <col style="width: 80px">
-          <col style="width: 80px">
+          <col style="">
           <col style="width: 40px">
           <col style="width: 40px">
-          <col style="width: 50px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 60px">
+          <col style="width: 40px">
+          <col style="width: 40px">
+          <col style="width: 40px">
           <col style="width: 150px">
         </colgroup>
         <thead>
         <tr>
           <th>№<br>п/п</th>
           <th>Подразделение / ФИО</th>
-          <th>По штату</th>
-          <th>По списку</th>
+          <th><span class="vertical-text">По штату</span></th>
+          <th><span class="vertical-text">По списку</span></th>
           <th v-for="id in statusOrder" :key="id">
-            {{ statusMapById[id].name }}
+            <span class="vertical-text">{{ statusMapById[id].name }}</span>
           </th>
           <th>Примечание</th>
         </tr>

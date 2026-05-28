@@ -9,6 +9,8 @@ use App\Models\Unit;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PersonnelController extends Controller {
     public function index($unitId) {
@@ -36,31 +38,49 @@ class PersonnelController extends Controller {
                 ->filter(fn($id) => is_numeric($id))
                 ->toArray();
 
-            $unit->personnel()->whereNotIn('id', $incomingIds)->delete();
+            // $unit->personnel()->whereNotIn('id', $incomingIds)->delete();
+            $toDelete = $unit->personnel()->whereNotIn('id', $incomingIds)->get();
+            foreach ($toDelete as $personToDelete) {
+                if ($personToDelete->photo_path) {
+                    Storage::disk('public')->delete($personToDelete->photo_path);
+                }
+                $personToDelete->delete();
+            }
 
             foreach ($request->all() as $pData) {
                 $id = $pData['id'] ?? null;
+                $incomingPhoto = $pData['photo'] ?? null;
 
                 if (is_numeric($id)) {
-                    Personnel::where('id', $id)->update([
-                        'unit_id'     => $unitId,
-                        'position_id' => $pData['positionId'],
-                        'rank_id'     => $pData['rankId'],
-                        'last_name'   => $pData['lastName'],
-                        'first_name'  => $pData['firstName'],
-                        'middle_name' => $pData['middleName'],
-                    ]);
+                    $person = Personnel::find($id);
+                    if ($person) {
+                        // Обрабатываем фото
+                        $photoPath = $this->processBase64Photo($incomingPhoto, $person->photo_path);
+
+                        $person->update([
+                            'unit_id'     => $unitId,
+                            'position_id' => $pData['positionId'],
+                            'rank_id'     => $pData['rankId'],
+                            'last_name'   => $pData['lastName'],
+                            'first_name'  => $pData['firstName'],
+                            'middle_name' => $pData['middleName'],
+                            'photo_path'  => $photoPath,
+                        ]);
+                    }
                 } else {
+                    $photoPath = $this->processBase64Photo($incomingPhoto);
+
                     Personnel::create([
-                        'unit_id'     => $unitId,
-                        'position_id' => $pData['positionId'],
-                        'rank_id'     => $pData['rankId'],
-                        'last_name'   => $pData['lastName'],
-                        'first_name'  => $pData['firstName'],
-                        'middle_name' => $pData['middleName'],
-                        'current_status_id' => 1,
+                        'unit_id'               => $unitId,
+                        'position_id'           => $pData['positionId'],
+                        'rank_id'               => $pData['rankId'],
+                        'last_name'             => $pData['lastName'],
+                        'first_name'            => $pData['firstName'],
+                        'middle_name'           => $pData['middleName'],
+                        'current_status_id'     => 1,
                         'status_set_by_user_id' => $request->user()->id,
-                        'note' => '',
+                        'note'                  => '',
+                        'photo_path'            => $photoPath,
                     ]);
                 }
             }
@@ -94,6 +114,8 @@ class PersonnelController extends Controller {
             $uId = $row->unit_id;
             $cId = $row->category_id;
 
+            $photoUrl = $row->photo_path ? asset('storage/' . $row->photo_path) : null;
+
             $groupedData[$uId][$cId]['personnel'][] = [
                 'id' => $row->id,
                 'last_name' => $row->last_name,
@@ -102,6 +124,7 @@ class PersonnelController extends Controller {
                 'rank_id' => $row->rank_id,
                 'current_status_id' => $row->current_status_id,
                 'note' => $row->note,
+                'photo' => $photoUrl,
                 'position' => ['id' => $row->position_id, 'title' => $row->position_title],
             ];
 
@@ -130,10 +153,9 @@ class PersonnelController extends Controller {
                 $aIsTarget = mb_strtolower($a['name']) === 'научная рота';
                 $bIsTarget = mb_strtolower($b['name']) === 'научная рота';
 
-                if ($aIsTarget && !$bIsTarget) return -1; // $a выше
-                if (!$aIsTarget && $bIsTarget) return 1;  // $b выше
+                if ($aIsTarget && !$bIsTarget) return -1;
+                if (!$aIsTarget && $bIsTarget) return 1; 
 
-                // Если ни одно, либо оба — "Научная рота" (маловероятно), сортируем по ID
                 return $a['id'] <=> $b['id'];
             });
 
@@ -189,5 +211,40 @@ class PersonnelController extends Controller {
         ]);
 
         return response()->json(['success' => true]);
+    }
+
+    private function processBase64Photo(?string $photoData, ?string $oldPath = null): ?string {
+        if (!$photoData) {
+            if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+            return null;
+        }
+
+        if (!preg_match('/^data:image\/(\w+);base64,/', $photoData, $type)) {
+            return $oldPath; 
+        }
+
+        $extension = strtolower($type[1]);
+        if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+            $extension = 'png'; 
+        }
+
+        $base64Image = substr($photoData, strpos($photoData, ',') + 1);
+        $decodedData = base64_decode($base64Image);
+
+        if ($decodedData === false) {
+            return $oldPath; 
+        }
+
+        $filename = 'photos/' . Str::random(40) . '.' . $extension;
+
+        Storage::disk('public')->put($filename, $decodedData);
+
+        if ($oldPath && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return $filename;
     }
 }

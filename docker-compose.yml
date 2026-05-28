@@ -63,6 +63,20 @@ services:
     depends_on:
       - postgres18
 
+  scheduler:
+    container_name: scheduler_pr
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    working_dir: /var/www/backend
+    volumes:
+      - ./src/backend:/var/www/backend
+    command: sh -c "while true; do php artisan schedule:run; sleep 60; done"
+    depends_on:
+      - backend
+    networks:
+      - app_net
+
 volumes:
   postgres_data:
   pgadmin_data:

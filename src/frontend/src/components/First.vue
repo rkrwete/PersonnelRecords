@@ -229,6 +229,42 @@
     border-radius: 8px;
     margin-top: 15px;
   }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px; 
+    margin-top: 10px;
+    table-layout: auto; 
+  }
+
+  .table thead th {
+    padding: 12px 4px;
+    vertical-align: bottom; 
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(50px);
+  }
+
+  .table thead th:nth-child(1),
+  .table thead th:nth-child(2) {
+    vertical-align: middle;
+    height: auto;
+  }
+
+  .vertical-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    display: inline-block;
+    white-space: normal; 
+    word-wrap: break-word;
+    max-height: 125px; 
+    text-align: left;
+    line-height: 1.2; 
+    margin: 0 auto;
+  }
 </style>
 
 <template>
@@ -323,30 +359,30 @@
 
             <table class="table" v-if="filteredCategories.length > 0">
               <colgroup>
-                <col style="width: 70px">
-                <col style="">
-                <col style="width: 70px">
-                <col style="width: 70px">
-                <col style="width: 60px">
-                <col style="width: 50px">
-                <col style="width: 60px">
-                <col style="width: 70px">
-                <col style="width: 50px">
                 <col style="width: 100px">
-                <col style="width: 80px">
-                <col style="width: 80px">
+                <col style="">
                 <col style="width: 40px">
                 <col style="width: 40px">
-                <col style="width: 50px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 60px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
               </colgroup>
               <thead>
                 <tr>
                   <th>№<br>п/п</th>
                   <th>Подразделение / ФИО</th>
-                  <th>По штату</th>
-                  <th>По списку</th>
+                  <th><span class="vertical-text">По штату</span></th>
+                  <th><span class="vertical-text">По списку</span></th>
                   <th v-for="id in statusOrder" :key="id">
-                    {{ statusMapById[id].name }}
+                    <span class="vertical-text">{{ statusMapById[id].name }}</span>
                   </th>
                 </tr>
               </thead>
@@ -554,7 +590,7 @@
           result.push(...c.personnel)
         }
       }
-    }
+    } 
 
     return result
   }

@@ -22,6 +22,7 @@ class UserController extends Controller {
 
     public function store(Request $request): JsonResponse {
         $validated = $request->validate([
+            'name'     => 'required|string',
             'login'    => 'required|string|max:255|unique:users,login',
             'password' => 'required|string|min:4',
             'role_id'  => 'required|integer',
@@ -64,7 +65,7 @@ class UserController extends Controller {
     public function destroy($id): JsonResponse {
         $user = User::findOrFail($id);
 
-        if (auth()->id() == $id) {
+        if (auth()->id == $id) {
             return response()->json(['error' => 'Вы не можете удалить сами себя'], 422);
         }
 

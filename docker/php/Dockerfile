@@ -25,9 +25,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         xml \
         pdo_pgsql \
         pgsql \
-    && pecl channel-update pecl.php.net \
-    && pecl install xdebug \
-    && docker-php-ext-enable xdebug \
+    # && pecl channel-update pecl.php.net \
+    # && pecl install xdebug \
+    # && docker-php-ext-enable xdebug \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
