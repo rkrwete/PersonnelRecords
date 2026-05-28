@@ -10,7 +10,6 @@
     >
       {{ node.name }}
     </div>
-    <Teleport to="body">
     <div v-if="open && hasChildren"
          class="children"
          :style="dropdownStyle"
@@ -24,12 +23,12 @@
           @select="$emit('select', $event)"
       />
     </div>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
+
 const isHoveringNode = ref(false)
 const isHoveringDropdown = ref(false)
 const dropdownStyle = ref({})
@@ -51,22 +50,26 @@ const hasChildren = computed(() => {
   return props.node.children && props.node.children.length > 0
 })
 
-
 let timeout
+let resizeObserver = null
 
-function onEnter(e) {
-  isHoveringNode.value = true
-  if (hasChildren.value) open.value = true
-
+function updateDropdownPosition(e) {
   const rect = e.currentTarget.getBoundingClientRect()
-
+  
   dropdownStyle.value = {
     position: 'fixed',
     top: rect.top + 'px',
-    left: rect.right + 'px'
+    left: (rect.right + 5) + 'px',
+    zIndex: 1000
   }
+}
 
-  open.value = true
+function onEnter(e) {
+  isHoveringNode.value = true
+  if (hasChildren.value) {
+    updateDropdownPosition(e)
+    open.value = true
+  }
 }
 
 function onLeave() {
@@ -118,13 +121,12 @@ function scheduleClose() {
   }
 
   .children {
-    position: absolute;
-    top: 0;
-    left: 100%;
+    position: fixed;
     min-width: 220px;
     background: var(--bg);
     border-radius: 10px;
-    z-index: 100;
+    z-index: 1000;
     box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+    padding: 5px 0;
   }
 </style>

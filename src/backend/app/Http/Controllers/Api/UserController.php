@@ -64,7 +64,7 @@ class UserController extends Controller {
     public function destroy($id): JsonResponse {
         $user = User::findOrFail($id);
 
-        if (auth()->id() == $id) {
+        if (auth()->id == $id) {
             return response()->json(['error' => 'Вы не можете удалить сами себя'], 422);
         }
 
