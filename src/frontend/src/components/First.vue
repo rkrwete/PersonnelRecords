@@ -166,7 +166,6 @@
     background: rgba(255, 255, 255, 0.05);
     font-weight: 600;
     text-align: center;
-
     position: sticky;
     top: 0;
     z-index: 10;
@@ -322,7 +321,7 @@
                 title="Отсутствующие по категориям"
                 :dataMap="statusOrder.reduce((acc, id) => {
                   const value = statusMap[id] || 0
-                  if (value > 0 && id !== 1) {
+                  if (value > 0 && id !== 1 && !PRESENT_STATUS_IDS.includes(id)) {
                     acc[statusMapById[id]?.name] = value
                   }
                   return acc
@@ -397,8 +396,7 @@
                   />
                 </template>
                 <tr class="str-total">
-                  <td></td>
-                  <td>Итого</td>
+                  <td colspan="2">Итого</td>
                   <td>{{ stats.shtat }}</td>
                   <td>{{ stats.list }}</td>
                   <td v-for="id in statusOrder" :key="id">
@@ -417,6 +415,7 @@
     </div>
   </div>
 </template>
+
 <script setup>
   import { ref, onMounted, computed, provide, watch } from 'vue'
   import api from '../services/api.js'
@@ -425,7 +424,7 @@
   import PieChart from './PieChart.vue'
   import RowUnit from "./RowUnit.vue";
   import { ranks } from '../constants/ranks'
-  import { statuses } from '../constants/statuses'
+  import { statuses, PRESENT_STATUS_IDS, statusOrder as globalStatusOrder } from '../constants/statuses'
 
   const units = ref([])
   const selectedUnit = ref(null)
@@ -437,7 +436,7 @@
     return Object.fromEntries(statuses.map(s => [s.id, s]))
   })
 
-  const statusOrder = computed(() => statuses.map(s => s.id))
+  const statusOrder = computed(() => globalStatusOrder)
 
   const rankMap = Object.fromEntries(
       ranks.map(r => [r.id, r.name])
@@ -449,18 +448,34 @@
 
   const statusMap = computed(() => {
     const map = {}
+    
+    statuses.forEach(s => {
+      if (s.id !== 1) {
+        map[s.id] = 0
+      }
+    })
+    map[1] = 0
 
     function traverse(units) {
       for (const u of units) {
         for (const p of u.personnel) {
           const s = p.current_status_id
-          map[s] = (map[s] || 0) + 1
+          if (s !== 1 && map[s] !== undefined) {
+            map[s] = (map[s] || 0) + 1
+          }
         }
         if (u.children) traverse(u.children)
       }
     }
 
     traverse(categories.value)
+    
+    let presentCount = 0
+    PRESENT_STATUS_IDS.forEach(statusId => {
+      presentCount += map[statusId] || 0
+    })
+    map[1] = presentCount
+    
     return map
   })
 
@@ -486,8 +501,16 @@
   function countStatusRecursive(unit, statusId) {
     let count = 0
 
-    for (const p of unit.personnel) {
-      if (p.current_status_id === statusId) count++
+    if (statusId === 1) {
+      for (const p of unit.personnel) {
+        if (PRESENT_STATUS_IDS.includes(p.current_status_id)) {
+          count++
+        }
+      }
+    } else {
+      for (const p of unit.personnel) {
+        if (p.current_status_id === statusId) count++
+      }
     }
 
     for (const child of unit.children) {
@@ -543,26 +566,23 @@
     categories.value = rootNode && rootNode.children ? rootNode.children : []
   }
 
-  provide('countStatusRecursive', countStatusRecursive)
-
-  onMounted(async () => {
-    const { data } = await api.get('/api/units')
-    units.value = data.data
-    const academy = { id: 1, name: 'Военная академия связи' }
-    selectedUnit.value = academy
-    await selectUnit(academy)
-  })
-
-
   function countStatus(cat, statusId) {
     let count = 0
-
-    for (const p of cat.personnel) {
-      if (p.current_status_id === statusId) {
-        count++
+    
+    if (statusId === 1) {
+      for (const p of cat.personnel) {
+        if (PRESENT_STATUS_IDS.includes(p.current_status_id)) {
+          count++
+        }
+      }
+    } else {
+      for (const p of cat.personnel) {
+        if (p.current_status_id === statusId) {
+          count++
+        }
       }
     }
-
+    
     return count
   }
 
@@ -576,24 +596,13 @@
     }
   }
 
+  // ========== ВСЕ PROVIDE В ОДНОМ МЕСТЕ ==========
   provide('statusOrder', statusOrder)
   provide('getRank', getRank)
   provide('countStatus', countStatus)
+  provide('countStatusRecursive', countStatusRecursive)
   provide('showNoteColumn', false)
-
-  function extractLocalPersonnel(unit) {
-    let result = []
-
-    if (Array.isArray(unit.categories)) {
-      for (const c of unit.categories) {
-        if (Array.isArray(c.personnel)) {
-          result.push(...c.personnel)
-        }
-      }
-    } 
-
-    return result
-  }
+  // =============================================
 
   async function downloadDutyRoster() {
     if (!selectedUnit.value) return;
@@ -700,5 +709,13 @@
 
   watch(selectedUnit, () => {
     tableSearchQuery.value = ''
+  })
+
+  onMounted(async () => {
+    const { data } = await api.get('/api/units')
+    units.value = data.data
+    const academy = { id: 1, name: 'Военная академия связи' }
+    selectedUnit.value = academy
+    await selectUnit(academy)
   })
 </script>

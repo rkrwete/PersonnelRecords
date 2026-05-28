@@ -12,6 +12,7 @@
           v-if="(unit.children && unit.children.length) || (unit.personnel && unit.personnel.length)" 
           class="chevron-icon"
           :class="{ 'is-expanded': expanded.has(unit.id) }"
+          @click.stop="toggle(unit.id)"
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="9 18 15 12 9 6"></polyline>
@@ -22,9 +23,12 @@
     </td>
     <td>{{ unit.totalShtat !== undefined ? unit.totalShtat : (unit.shtat || 0) }}</td>
     <td>{{ unit.totalPersonnelCount !== undefined ? unit.totalPersonnelCount : (unit.personnel?.length || 0) }}</td>
-    <td v-for="id in statusOrder" :key="id">
+    
+    <!-- Только реальные статусы, без "Налицо" (id=1) -->
+    <td v-for="id in localStatusOrder" :key="id" class="status-cell">
       {{ countStatusRecursive(unit, id) }}
     </td>
+
     <td v-if="showNoteColumn"></td>
   </tr>
 
@@ -69,11 +73,12 @@
           </div>
           </div>
       </td>
-      <td v-for="id in statusOrder"
+      
+      <td v-for="id in localStatusOrder"
           :key="id"
           class="status-cell"
           :class="{ 'editable': canEdit(id, p) }"
-          @click="setStatus(p, id)"
+          @click.stop="setStatus(p, id)"
       >
         <span v-if="p.current_status_id === id" style="color: #4ade80;">✔</span>
       </td>
@@ -88,7 +93,7 @@
                @keyup.esc="editingPersonId = null"
                class="inline-input"
         />
-        <div v-else @click="startEditingNote(p)" style="min-height: 20px; width: 100%;">
+        <div v-else @click.stop="startEditingNote(p)" style="min-height: 20px; width: 100%;">
           {{ p.note }}
         </div>
       </td>
@@ -102,7 +107,7 @@
         <td :style="{ paddingLeft: `${12 + (level + 1) * 10}px`, textAlign: 'left' }">
           {{ index }}<span style="opacity: 0.5">.{{ (unit.personnel?.length || 0) + v }}</span>
         </td>
-        <td :colspan="3 + statusOrder.length + (showNoteColumn ? 1 : 0)"
+        <td :colspan="4 + localStatusOrder.length + (showNoteColumn ? 1 : 0)"
             class="vacant-text"
             style="text-align: center;"
         >
@@ -124,15 +129,18 @@
 
 <script setup>
 import { inject, ref } from 'vue'
+import { statusOrder } from '../constants/statuses'
 
 const showNoteColumn = inject('showNoteColumn', false)
-const statusOrder = inject('statusOrder')
 const getRank = inject('getRank')
 const countStatusRecursive = inject('countStatusRecursive')
 const allowedStatuses = inject('allowedStatuses', ref([]))
 const lockedRowStatuses = inject('lockedRowStatuses', ref([]))
 const updateStatus = inject('updateStatus', () => {})
 const saveNote = inject('saveNote', () => {})
+
+// Создаем локальную переменную с правильным порядком статусов
+const localStatusOrder = statusOrder
 
 const emit = defineEmits(['toggle'])
 const editingPersonId = ref(null)
@@ -154,11 +162,15 @@ const vFocus = { mounted: (el) => el.focus() }
 
 defineProps(['unit', 'level', 'index', 'expanded'])
 
-function toggle(id) { emit('toggle', id) }
+function toggle(id) { 
+  emit('toggle', id) 
+}
+
 function canEdit(statusId, person) {
   if (lockedRowStatuses.value.includes(person.current_status_id)) return false;
   return allowedStatuses.value.includes(statusId);
 }
+
 function setStatus(person, statusId) {
   if (!canEdit(statusId, person)) return;
   const BASE_STATUS_ID = 1; 

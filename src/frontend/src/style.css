@@ -132,12 +132,21 @@
   --btn-hover: #ffb96a;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+}
+
 html {
   background-color: var(--bg);
   color: var(--text);
   font-family: "Tektur", sans-serif;
   font-weight: 400;
   font-size: 14px;
+
+  line-height: 1.5;
 
   scrollbar-width: thin;
   scrollbar-color: var(--btn) var(--bg);
@@ -149,4 +158,38 @@ body {
 
 table {
   font-size: 16px !important; 
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+ul,
+ol {
+  padding: 0;
+  list-style: none;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
 }

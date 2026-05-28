@@ -13,6 +13,7 @@ return new class extends Migration {
 
             // Удаляем колонку login, если она осталась от предыдущих попыток
             if (Schema::hasColumn('users', 'login')) {
+                $table->dropUnique('users_login_unique');
                 $table->dropColumn('login');
             }
 

@@ -7,7 +7,6 @@
     >
       {{ node.name }}
     </div>
-    
     <div v-if="open && hasChildren"
          class="children"
          :style="dropdownStyle">
@@ -23,7 +22,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
+
+const isHoveringNode = ref(false)
+const isHoveringDropdown = ref(false)
+const dropdownStyle = ref({})
 
 defineOptions({
   name: 'UnitNode'
@@ -44,20 +47,26 @@ const hasChildren = computed(() => {
   return props.node.children && props.node.children.length > 0
 })
 
-function onEnter(e) {
-  clearTimeout(timeout)
-  if (!hasChildren.value) return
+let timeout
+let resizeObserver = null
 
-  const unitEl = e.currentTarget.querySelector('.unit')
-  const rect = unitEl.getBoundingClientRect()
-
+function updateDropdownPosition(e) {
+  const rect = e.currentTarget.getBoundingClientRect()
+  
   dropdownStyle.value = {
     position: 'fixed',
     top: rect.top + 'px',
-    left: (rect.right - 2) + 'px' // Нахлест в 2px, чтобы не было "мертвой зоны" при переводе мыши
+    left: (rect.right + 5) + 'px',
+    zIndex: 1000
   }
+}
 
-  open.value = true
+function onEnter(e) {
+  isHoveringNode.value = true
+  if (hasChildren.value) {
+    updateDropdownPosition(e)
+    open.value = true
+  }
 }
 
 function onLeave() {
@@ -92,10 +101,11 @@ function onLeave() {
   }
 
   .children {
-    z-index: 9999;
+    position: fixed;
     min-width: 220px;
     background: var(--bg, #2a2a2a); 
     border-radius: 10px;
+    z-index: 1000;
     box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
     padding: 5px 0;
   }
