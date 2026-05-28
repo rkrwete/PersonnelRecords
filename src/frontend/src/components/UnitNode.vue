@@ -25,8 +25,6 @@
 import { ref, computed, nextTick } from 'vue'
 
 const isHoveringNode = ref(false)
-const isHoveringDropdown = ref(false)
-const dropdownStyle = ref({})
 
 defineOptions({
   name: 'UnitNode'
@@ -47,7 +45,6 @@ const hasChildren = computed(() => {
   return props.node.children && props.node.children.length > 0
 })
 
-let timeout
 let resizeObserver = null
 
 function updateDropdownPosition(e) {
