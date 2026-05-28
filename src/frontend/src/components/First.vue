@@ -369,7 +369,13 @@
                 <col style="width: 40px">
                 <col style="width: 40px">
                 <col style="width: 40px">
-                <col style="width: 60px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
+                <col style="width: 40px">
                 <col style="width: 40px">
                 <col style="width: 40px">
                 <col style="width: 40px">
@@ -425,7 +431,7 @@
   import RowUnit from "./RowUnit.vue";
   import { ranks } from '../constants/ranks'
   import { statuses, PRESENT_STATUS_IDS, statusOrder as globalStatusOrder } from '../constants/statuses'
-
+  
   const units = ref([])
   const selectedUnit = ref(null)
   const categories = ref([])
@@ -596,13 +602,11 @@
     }
   }
 
-  // ========== ВСЕ PROVIDE В ОДНОМ МЕСТЕ ==========
   provide('statusOrder', statusOrder)
   provide('getRank', getRank)
   provide('countStatus', countStatus)
   provide('countStatusRecursive', countStatusRecursive)
   provide('showNoteColumn', false)
-  // =============================================
 
   async function downloadDutyRoster() {
     if (!selectedUnit.value) return;

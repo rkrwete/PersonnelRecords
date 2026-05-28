@@ -107,7 +107,7 @@
         <td :style="{ paddingLeft: `${12 + (level + 1) * 10}px`, textAlign: 'left' }">
           {{ index }}<span style="opacity: 0.5">.{{ (unit.personnel?.length || 0) + v }}</span>
         </td>
-        <td :colspan="4 + localStatusOrder.length + (showNoteColumn ? 1 : 0)"
+        <td :colspan="3 + localStatusOrder.length + (showNoteColumn ? 1 : 0)"
             class="vacant-text"
             style="text-align: center;"
         >
@@ -139,8 +139,7 @@ const lockedRowStatuses = inject('lockedRowStatuses', ref([]))
 const updateStatus = inject('updateStatus', () => {})
 const saveNote = inject('saveNote', () => {})
 
-// Создаем локальную переменную с правильным порядком статусов
-const localStatusOrder = statusOrder
+const localStatusOrder = inject('statusOrder')
 
 const emit = defineEmits(['toggle'])
 const editingPersonId = ref(null)

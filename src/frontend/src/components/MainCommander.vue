@@ -100,34 +100,16 @@
       <div class="subtitle">Расход личного состава</div>
 
       <table class="table">
-        <colgroup>
-          <col style="width: 100px">
-          <col style="">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 60px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 40px">
-          <col style="width: 150px">
-        </colgroup>
         <thead>
         <tr>
-          <th>№<br>п/п</th>
+          <th style="width: 100px">№<br>п/п</th>
           <th>Подразделение / ФИО</th>
-          <th><span class="vertical-text">По штату</span></th>
-          <th><span class="vertical-text">По списку</span></th>
-          <th v-for="id in statusOrder" :key="id">
+          <th style="width: 40px"><span class="vertical-text">По штату</span></th>
+          <th style="width: 40px"><span class="vertical-text">По списку</span></th>
+          <th v-for="id in statusOrder" :key="id" style="width: 40px">
             <span class="vertical-text">{{ statusMapById[id].name }}</span>
           </th>
-          <th>Примечание</th>
+          <th style="width: 150px">Примечание</th>
         </tr>
         </thead>
         <tbody>
