@@ -24,8 +24,7 @@
     <td>{{ unit.totalShtat !== undefined ? unit.totalShtat : (unit.shtat || 0) }}</td>
     <td>{{ unit.totalPersonnelCount !== undefined ? unit.totalPersonnelCount : (unit.personnel?.length || 0) }}</td>
     
-    <!-- Только реальные статусы, без "Налицо" (id=1) -->
-    <td v-for="id in localStatusOrder" :key="id" class="status-cell">
+    <td v-for="id in localStatusOrder.slice(1)" :key="id" class="status-cell">
       {{ countStatusRecursive(unit, id) }}
     </td>
 
@@ -71,10 +70,10 @@
               </div>
             </div>
           </div>
-          </div>
+        </div>
       </td>
       
-      <td v-for="id in localStatusOrder"
+      <td v-for="id in localStatusOrder.slice(1)"
           :key="id"
           class="status-cell"
           :class="{ 'editable': canEdit(id, p) }"
@@ -107,7 +106,7 @@
         <td :style="{ paddingLeft: `${12 + (level + 1) * 10}px`, textAlign: 'left' }">
           {{ index }}<span style="opacity: 0.5">.{{ (unit.personnel?.length || 0) + v }}</span>
         </td>
-        <td :colspan="3 + localStatusOrder.length + (showNoteColumn ? 1 : 0)"
+        <td :colspan="3 + (localStatusOrder.length - 1) + (showNoteColumn ? 1 : 0)"
             class="vacant-text"
             style="text-align: center;"
         >
@@ -129,7 +128,6 @@
 
 <script setup>
 import { inject, ref } from 'vue'
-import { statusOrder } from '../constants/statuses'
 
 const showNoteColumn = inject('showNoteColumn', false)
 const getRank = inject('getRank')
@@ -230,14 +228,12 @@ function setStatus(person, statusId) {
   max-width: 360px;
   pointer-events: none;
   
-
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px);
   transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* "Треугольник" указывающий вниз */
 .custom-tooltip::after {
   content: '';
   position: absolute;
@@ -309,11 +305,10 @@ function setStatus(person, statusId) {
 
 .t-note {
   font-size: 0.85em;
-  color: #fbbf24; /* Желтоватый цвет для акцента на заметке */
+  color: #fbbf24; 
   margin-top: 2px;
   line-height: 1.2;
 }
-/* -------------------------------------- */
 
 .chevron-icon {
   margin-right: 6px;
@@ -394,7 +389,6 @@ td:nth-child(n+3), th:nth-child(n+3) {
 .note-icon:hover { opacity: 1; }
 
 svg { width: 100%; height: 100%; }
-
 
 .inline-rank {
   width: 140px;          

@@ -106,7 +106,7 @@
           <th>Подразделение / ФИО</th>
           <th style="width: 40px"><span class="vertical-text">По штату</span></th>
           <th style="width: 40px"><span class="vertical-text">По списку</span></th>
-          <th v-for="id in statusOrder" :key="id" style="width: 40px">
+          <th v-for="id in statusOrder.slice(1)" :key="id" style="width: 40px">
             <span class="vertical-text">{{ statusMapById[id].name }}</span>
           </th>
           <th style="width: 150px">Примечание</th>
@@ -127,7 +127,7 @@
           <td>Итого</td>
           <td>{{ stats.shtat }}</td>
           <td>{{ stats.list }}</td>
-          <td v-for="id in statusOrder" :key="id">
+          <td v-for="id in statusOrder.slice(1)" :key="id">
             {{ statusMap[id] || 0 }}
           </td>
           <td></td>

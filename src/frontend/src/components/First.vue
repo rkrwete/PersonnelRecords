@@ -330,7 +330,7 @@
             <div class="status-circles">
               <div
                   class="status-circle"
-                  v-for="status in statuses"
+                  v-for="status in statuses.slice(1)"
                   :key="status.id"
               >
                 <div
