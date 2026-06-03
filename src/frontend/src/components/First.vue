@@ -119,7 +119,8 @@
   .status-circles {
     display: flex;
     flex-wrap: wrap;
-    gap: 24px;
+    row-gap: 24px;
+    column-gap: 58px;
     margin: 20px auto;
   }
 
@@ -145,14 +146,6 @@
   .label {
     font-size: 10px;
     margin: auto;
-  }
-
-  .table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    margin-top: 10px;
-    table-layout: fixed;
   }
 
   .table th,
@@ -304,10 +297,10 @@
           </div>
           <div v-if="tab === 1" class="stats">
             <PieChart
-                title="По списку / по штату"
+                title="По списку / Вакантны"
                 :dataMap="{
                 'По списку': stats.list,
-                'По штату': stats.shtat
+                'Вакантны': stats.shtat - stats.list
               }"
             />
             <PieChart
@@ -358,27 +351,11 @@
 
             <table class="table" v-if="filteredCategories.length > 0">
               <colgroup>
-                <col style="width: 100px">
+                <col style="width: 60px">
                 <col style="">
                 <col style="width: 40px">
                 <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
-                <col style="width: 40px">
+                <col v-for="id in statusOrder" :key="'col-' + id" style="width: 40px">
               </colgroup>
               <thead>
                 <tr>
@@ -387,7 +364,7 @@
                   <th><span class="vertical-text">По штату</span></th>
                   <th><span class="vertical-text">По списку</span></th>
                   <th v-for="id in statusOrder" :key="id">
-                    <span class="vertical-text">{{ statusMapById[id].name }}</span>
+                    <span class="vertical-text">{{ statusMapById[id]?.name || '' }}</span>
                   </th>
                 </tr>
               </thead>
