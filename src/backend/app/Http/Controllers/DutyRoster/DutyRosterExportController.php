@@ -10,6 +10,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
 
 class DutyRosterExportController extends Controller
 {
@@ -194,6 +195,7 @@ class DutyRosterExportController extends Controller
         ];
     }
 
+    
     // ==================== ОСНОВНОЙ МЕТОД ЭКСПОРТА ====================
     public function export($unitId)
     {
@@ -220,21 +222,28 @@ class DutyRosterExportController extends Controller
 
             // ==================== ЛИСТ 1: СТРОЕВАЯ ЗАПИСКА ====================
             $spreadsheet = new Spreadsheet();
+            
+            // Установка шрифта Times New Roman для всего документа
+            $spreadsheet->getDefaultStyle()->getFont()->setName('Times New Roman');
+            $spreadsheet->getDefaultStyle()->getFont()->setSize(11);
+            
             $sheet = $spreadsheet->getActiveSheet();
             $sheet->setTitle('Строевая записка');
 
             // Заголовок
             $sheet->setCellValue('A1', 'СТРОЕВАЯ ЗАПИСКА');
             $sheet->mergeCells('A1:R1');
-            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16)->setName('Times New Roman');
             $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->setCellValue('A2', $unit->name);
             $sheet->mergeCells('A2:R2');
+            $sheet->getStyle('A2')->getFont()->setName('Times New Roman');
             $sheet->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             $sheet->setCellValue('A3', 'на "' . date('d.m.Y') . '"');
             $sheet->mergeCells('A3:R3');
+            $sheet->getStyle('A3')->getFont()->setName('Times New Roman');
             $sheet->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
             // --- Двухстрочная шапка ---
@@ -272,7 +281,7 @@ class DutyRosterExportController extends Controller
             }
 
             $headerStyle = [
-                'font'      => ['bold' => true],
+                'font'      => ['bold' => true, 'name' => 'Times New Roman'],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
                 'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
             ];
@@ -306,7 +315,7 @@ class DutyRosterExportController extends Controller
 
             // Итоговая строка
             $sheet->setCellValue('B' . $row, 'ИТОГО');
-            $sheet->getStyle('B' . $row)->getFont()->setBold(true);
+            $sheet->getStyle('B' . $row)->getFont()->setBold(true)->setName('Times New Roman');
             $sheet->setCellValue('C' . $row, $this->fillEmpty($totals['staff']));
             $sheet->setCellValue('D' . $row, $this->fillEmpty($totals['total']));
             $sheet->setCellValue('E' . $row, $this->fillEmpty($totals['nalitso_total']));
@@ -325,6 +334,9 @@ class DutyRosterExportController extends Controller
             $sheet->setCellValue('R' . $row, $this->fillEmpty($totals['prochee']));
 
             $lastRow = $row;
+            
+            // Применяем шрифт Times New Roman ко всем ячейкам с данными
+            $sheet->getStyle('A7:R' . $lastRow)->getFont()->setName('Times New Roman');
             $sheet->getStyle('A7:R' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->getStyle('B7:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
             $sheet->getStyle('A7:R' . $lastRow)->applyFromArray(['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]]);
@@ -333,14 +345,17 @@ class DutyRosterExportController extends Controller
             $sheet2 = $spreadsheet->createSheet();
             $sheet2->setTitle('Оборотная сторона');
             
+            // Применяем шрифт Times New Roman для второго листа
+            $sheet2->getStyle('A1:K100')->getFont()->setName('Times New Roman');
+            
             // Заголовок
             $sheet2->setCellValue('A1', 'СПИСОК ЛИЧНОГО СОСТАВА');
             $sheet2->mergeCells('A1:E2');
-            $sheet2->getStyle('A1')->getFont()->setBold(true)->setSize(14);
+            $sheet2->getStyle('A1')->getFont()->setBold(true)->setSize(14)->setName('Times New Roman');
             $sheet2->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             
             $sheet2->mergeCells('G1:K2');
-            $sheet2->getStyle('G1')->getFont()->setBold(true)->setSize(14);
+            $sheet2->getStyle('G1')->getFont()->setBold(true)->setSize(14)->setName('Times New Roman');
             $sheet2->getStyle('G1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             
             // Заголовки колонок
@@ -358,7 +373,7 @@ class DutyRosterExportController extends Controller
             foreach ($headers2 as $i => $header) {
                 $col = chr(65 + $i);
                 $sheet2->setCellValue($col . $col1StartRow, $header);
-                $sheet2->getStyle($col . $col1StartRow)->getFont()->setBold(true);
+                $sheet2->getStyle($col . $col1StartRow)->getFont()->setBold(true)->setName('Times New Roman');
                 $sheet2->getStyle($col . $col1StartRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 $sheet2->getColumnDimension($col)->setWidth(15);
             }
@@ -367,7 +382,7 @@ class DutyRosterExportController extends Controller
             foreach ($headers2 as $i => $header) {
                 $col = chr(71 + $i); // G=71, H=72, I=73, J=74, K=75
                 $sheet2->setCellValue($col . $col2StartRow, $header);
-                $sheet2->getStyle($col . $col2StartRow)->getFont()->setBold(true);
+                $sheet2->getStyle($col . $col2StartRow)->getFont()->setBold(true)->setName('Times New Roman');
                 $sheet2->getStyle($col . $col2StartRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
                 $sheet2->getColumnDimension($col)->setWidth(15);
             }
@@ -386,6 +401,7 @@ class DutyRosterExportController extends Controller
                 $sheet2->setCellValue('C' . $row1, $person['rank']);
                 $sheet2->setCellValue('D' . $row1, $person['fio']);
                 $sheet2->setCellValue('E' . $row1, $person['reason']);
+                $sheet2->getStyle('A' . $row1 . ':E' . $row1)->getFont()->setName('Times New Roman');
                 $row1++;
             }
             
@@ -400,6 +416,7 @@ class DutyRosterExportController extends Controller
                 $sheet2->setCellValue('I' . $row2, $person['rank']);
                 $sheet2->setCellValue('J' . $row2, $person['fio']);
                 $sheet2->setCellValue('K' . $row2, $person['reason']);
+                $sheet2->getStyle('G' . $row2 . ':K' . $row2)->getFont()->setName('Times New Roman');
                 $row2++;
             }
             
@@ -407,12 +424,14 @@ class DutyRosterExportController extends Controller
             $infoRow1 = $col1EndRow + 2;
             $sheet2->setCellValue('A' . $infoRow1, 'По списку:');
             $sheet2->setCellValue('B' . $infoRow1, $reverseData['total']);
-            $sheet2->getStyle('A' . $infoRow1)->getFont()->setBold(true);
+            $sheet2->getStyle('A' . $infoRow1)->getFont()->setBold(true)->setName('Times New Roman');
+            $sheet2->getStyle('B' . $infoRow1)->getFont()->setName('Times New Roman');
             
             $infoRow2 = $infoRow1 + 1;
             $sheet2->setCellValue('A' . $infoRow2, 'На лицо:');
             $sheet2->setCellValue('B' . $infoRow2, $reverseData['present']);
-            $sheet2->getStyle('A' . $infoRow2)->getFont()->setBold(true);
+            $sheet2->getStyle('A' . $infoRow2)->getFont()->setBold(true)->setName('Times New Roman');
+            $sheet2->getStyle('B' . $infoRow2)->getFont()->setName('Times New Roman');
             
             // Применяем границы для оборотной стороны
             $borderStyle = [
@@ -463,4 +482,5 @@ class DutyRosterExportController extends Controller
             ], 500);
         }
     }
+
 }

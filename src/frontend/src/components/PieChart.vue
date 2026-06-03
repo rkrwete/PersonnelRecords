@@ -63,7 +63,7 @@
             angle = angle + 180;
           } 
           else if (angle >= 300 && angle <= 360) {
-            angle = angle + 180;
+            angle = angle + 176;
           } 
           
           return angle + 90;
