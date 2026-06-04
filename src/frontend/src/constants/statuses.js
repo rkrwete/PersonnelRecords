@@ -3,6 +3,7 @@ export const statuses = [
     {id: 12, name: '123 в/г', color: '#C2FF69'},
     {id: 13, name: '84 в/г', color: '#C2FF69'},
     {id: 14, name: '6 в/г', color: '#C2FF69'},
+    {id: 19, name: '5 в/г', color: '#C2FF69'},
     {id: 15, name: 'УЦ (ИТ)', color: '#C2FF69'},
     {id: 16, name: 'Др. прич.', color: '#C2FF69'},
     {id: 2, name: 'Наряд', color: '#FF8453'},
@@ -19,5 +20,5 @@ export const statuses = [
     {id: 18, name: 'Гарнизон', color: '#4ECDC4'},
 ]
 
-export const PRESENT_STATUS_IDS = [12, 13, 14, 15, 16]
-export const statusOrder = [12, 13, 14, 15, 16, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 17, 18]
+export const PRESENT_STATUS_IDS = [12, 13, 14, 19, 15, 16]
+export const statusOrder = [12, 13, 14, 19, 15, 16, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 17, 18]

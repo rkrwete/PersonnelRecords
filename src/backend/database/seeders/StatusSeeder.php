@@ -27,6 +27,7 @@ class StatusSeeder extends Seeder {
             ['name' => 'Др. прич.'],    //налицо
             ['name' => 'Освобождены по болезни'], // вне кафедры
             ['name' => 'Гарнизон'], // вне академии
+            ['name' => '5 в/г'], 
         ];
 
         foreach ($statuses as $status) {

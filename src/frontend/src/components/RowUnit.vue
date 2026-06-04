@@ -1,8 +1,5 @@
 <template>
-  <tr @click="toggle(unit.id)"
-      class="tree-unit"
-      :class="`level-${level}`"
-  >
+  <tr @click="toggle(unit.id)" class="tree-unit" :class="`level-${level}`">
     <td :style="{ paddingLeft: `${12 + level * 10}px`, textAlign: 'left' }">
       {{ index }}
     </td>
@@ -24,7 +21,7 @@
     <td>{{ unit.totalShtat !== undefined ? unit.totalShtat : (unit.shtat || 0) }}</td>
     <td>{{ unit.totalPersonnelCount !== undefined ? unit.totalPersonnelCount : (unit.personnel?.length || 0) }}</td>
     
-    <td v-for="id in localStatusOrder.slice(1)" :key="id" class="status-cell">
+    <td v-for="id in localStatusOrder" :key="id" class="status-cell">
       {{ countStatusRecursive(unit, id) }}
     </td>
 
@@ -32,30 +29,16 @@
   </tr>
 
   <template v-if="expanded.has(unit.id)">
-    <tr v-for="(p, i) in unit.personnel" 
-        :key="p.id"
-        class="personnel-row"
-        :class="`level-${level}`"
-    >
+    <tr v-for="(p, i) in unit.personnel" :key="p.id" class="personnel-row" :class="`level-${level}`">
       <td :style="{ paddingLeft: `${12 + (level + 1) * 10}px`, textAlign: 'left' }">
         {{ index }}<span style="opacity: 0.5">.{{ i + 1 }}</span>
       </td>
-      <td class="nested-name-cell"
-          colspan="3"
-          :style="{ paddingLeft: `${12 + (level + 1) * 10}px`, textAlign: 'left' }"
-      >
+      <td class="nested-name-cell" colspan="3" :style="{ paddingLeft: `${12 + (level + 1) * 10}px`, textAlign: 'left' }">
         <div class="indent-wrapper tooltip-container">
           <span style="margin-right: 8px; opacity: 0.4; font-weight: bold;">·</span>
           <span class="inline-rank">{{ getRank(p.rank_id) }}</span>
           <span class="person-name">{{ p.last_name }} {{ p.first_name }} {{ p.middle_name }}</span>
-          <span v-if="!showNoteColumn && p.note" class="note-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
-            </svg>
-          </span>
-
+          
           <div class="custom-tooltip">
             <div class="t-photo-wrap">
               <img v-if="p.photo" :src="p.photo" alt="Фото" class="t-photo" />
@@ -65,15 +48,12 @@
               <div class="t-rank">{{ getRank(p.rank_id) }}</div>
               <div class="t-name">{{ p.last_name }} {{ p.first_name }} {{ p.middle_name }}</div>
               <div class="t-pos">{{ p.position?.title || 'Должность не указана' }}</div>
-              <div class="t-note" v-if="!showNoteColumn && p.note">
-                <span style="opacity:0.6;font-size:0.9em;">Примечание:</span> {{ p.note }}
-              </div>
             </div>
           </div>
         </div>
       </td>
       
-      <td v-for="id in localStatusOrder.slice(1)"
+      <td v-for="id in localStatusOrder"
           :key="id"
           class="status-cell"
           :class="{ 'editable': canEdit(id, p) }"
@@ -106,7 +86,7 @@
         <td :style="{ paddingLeft: `${12 + (level + 1) * 10}px`, textAlign: 'left' }">
           {{ index }}<span style="opacity: 0.5">.{{ (unit.personnel?.length || 0) + v }}</span>
         </td>
-        <td :colspan="3 + (localStatusOrder.length - 1) + (showNoteColumn ? 1 : 0)"
+        <td :colspan="3 + localStatusOrder.length + (showNoteColumn ? 1 : 0)"
             class="vacant-text"
             style="text-align: center;"
         >

@@ -9,14 +9,16 @@ class CalendarNote extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'date', 'content'];
-
-    protected $casts = [
-        'date' => 'date',
+    protected $fillable = [
+        'user_id', 'title', 'content', 'date', 
+        'reminder_time', 'reminder_type', 'is_notification_sent',
+        'is_recurring', 'color'
     ];
 
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    protected $casts = [
+        'is_recurring' => 'boolean',
+        'is_notification_sent' => 'boolean',
+        'date' => 'date',
+        'reminder_time' => 'datetime',
+    ];
 }

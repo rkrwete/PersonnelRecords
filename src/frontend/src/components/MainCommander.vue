@@ -1,86 +1,3 @@
-<style scoped>
-  .page {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 15px;
-    gap: 20px;
-  }
-
-  .title {
-    text-align: center;
-    font-weight: 700;
-    margin: 10px 0;
-    font-size: 18px;
-  }
-
-  .subtitle {
-    text-align: center;
-    font-size: 14px;
-    opacity: 0.8;
-    margin: 0 0 15px 0;
-  }
-
-  .expense-card {
-    width: 1400px;
-    padding: 26px;
-    border-radius: 10px;
-    box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
-    display: flex;
-    flex-direction: column;
-  }
-
-  .table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    margin-top: 10px;
-    table-layout: fixed;
-  }
-
-  .table th, .table td {
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: 10px 0;
-    vertical-align: middle;
-  }
-
-  .table thead th {
-    background: rgba(255, 255, 255, 0.05);
-    font-weight: 600;
-    text-align: center;
-
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    backdrop-filter: blur(50px);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.08);
-  }
-
-  .table td:nth-child(n+3),
-  .table th:nth-child(n+3) {
-    text-align: center;
-  }
-
-  .str-total {
-    font-weight: 600;
-    background: rgba(255, 255, 255, 0.2);
-    text-align: center;
-  }
-
-  .vertical-text {
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    display: inline-block;
-    white-space: normal; 
-    word-wrap: break-word;
-    max-height: 125px; 
-    text-align: left;
-    line-height: 1.2; 
-    margin: 0 auto;
-  }
-</style>
-
 <template>
   <Header/>
   <div class="page">
@@ -100,38 +17,49 @@
       <div class="subtitle">Расход личного состава</div>
 
       <table class="table">
+        <colgroup>
+          <col style="width: 100px;">
+          <col style="width: auto;">
+          <col style="width: 40px;">  
+          <col style="width: 40px;">
+          <col v-for="id in statusOrder" :key="'col-' + id" style="width: 40px;">
+          <col style="width: 160px;">
+        </colgroup>
+
         <thead>
-        <tr>
-          <th style="width: 100px">№<br>п/п</th>
-          <th>Подразделение / ФИО</th>
-          <th style="width: 40px"><span class="vertical-text">По штату</span></th>
-          <th style="width: 40px"><span class="vertical-text">По списку</span></th>
-          <th v-for="id in statusOrder.slice(1)" :key="id" style="width: 40px">
-            <span class="vertical-text">{{ statusMapById[id].name }}</span>
-          </th>
-          <th style="width: 150px">Примечание</th>
-        </tr>
+          <tr>
+            <th>№<br>п/п</th>
+            <th>Подразделение / ФИО</th>
+            <th><span class="vertical-text">По штату</span></th>
+            <th><span class="vertical-text">По списку</span></th>
+            <th v-for="id in statusOrder" :key="id">
+              <span class="vertical-text">{{ statusMapById[id]?.name || '' }}</span>
+            </th>
+            <th>Примечание</th>
+          </tr>
         </thead>
+
         <tbody>
-        <template v-for="(cat, index) in categories" :key="cat.id">
-          <RowUnit
-              :unit="cat"
-              :level="0"
-              :index="String(index + 1)"
-              :expanded="expanded"
-              @toggle="toggle"
-          />
-        </template>
-        <tr class="str-total">
-          <td></td>
-          <td>Итого</td>
-          <td>{{ stats.shtat }}</td>
-          <td>{{ stats.list }}</td>
-          <td v-for="id in statusOrder.slice(1)" :key="id">
-            {{ statusMap[id] || 0 }}
-          </td>
-          <td></td>
-        </tr>
+          <template v-for="(cat, index) in categories" :key="cat.id">
+            <RowUnit
+                :unit="cat"
+                :level="0"
+                :index="String(index + 1)"
+                :expanded="expanded"
+                @toggle="toggle"
+            />
+          </template>
+
+          <tr class="str-total">
+            <td></td>
+            <td style="text-align: left; padding-left: 12px;">Итого</td>
+            <td>{{ stats.shtat }}</td>
+            <td>{{ stats.list }}</td>
+            <td v-for="id in statusOrder" :key="id">
+              {{ statusMap[id] || 0 }}
+            </td>
+            <td></td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -145,10 +73,11 @@
   import { ref, onMounted, computed, watch, provide } from 'vue'
   import api from "../services/api.js";
   import { ranks } from '../constants/ranks'
-  import { statuses } from "../constants/statuses.js";
+  // Импортируем и сам statusOrder из файла констант
+  import { statuses, statusOrder as globalStatusOrder } from "../constants/statuses.js";
 
   const user = JSON.parse(window.localStorage.getItem('user'))
-  const userRoleId = user.role_id
+  const userRoleId = user?.role_id || 0
 
   const allUnits = ref([])
   const selectedUnitId = ref(null)
@@ -156,7 +85,8 @@
   const categories = ref([])
   const expanded = ref(new Set())
 
-  const statusOrder = computed(() => statuses.map(s => s.id))
+  /* ИСПРАВЛЕНО: Привязываемся к массиву из констант, где нет ID: 1 */
+  const statusOrder = computed(() => globalStatusOrder)
   const statusMapById = computed(() => Object.fromEntries(statuses.map(s => [s.id, s])))
   const rankMap = Object.fromEntries(ranks.map(r => [r.id, r.name]))
 
@@ -221,6 +151,7 @@
   provide('allowedStatuses', allowedStatuses)
   provide('lockedRowStatuses', lockedRowStatuses)
   provide('showNoteColumn', true)
+
   function countStatusRecursive(unit, statusId) {
     let count = 0
     if (unit.personnel) {
@@ -273,19 +204,8 @@
       selectedUnitId.value = user.unit_id
       unitName.value = user.name
       await fetchUnitData(user.unit_id)
-    } else if (userRoleId == 3 && data.categories) {
-      categories.value = data.categories.map(c => ({
-        id: c.id || Math.random(),
-        name: c.name,
-        shtat: c.shtat,
-        totalShtat: c.shtat,
-        totalPersonnelCount: c.personnel?.length || 0,
-        personnel: c.personnel || [],
-        children: []
-      }))
     } else {
       const { data } = await api.get('/api/units')
-      console.log(data)
       function normalize(nodes) {
         return nodes.map(n => ({
           ...n,
@@ -373,3 +293,92 @@
     return result
   }
 </script>
+
+<style scoped>
+  .page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    gap: 20px;
+  }
+
+  .title {
+    text-align: center;
+    font-weight: 700;
+    margin: 10px 0;
+    font-size: 18px;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 14px;
+    opacity: 0.8;
+    margin: 0 0 15px 0;
+  }
+
+  .expense-card {
+    width: 1400px;
+    padding: 26px;
+    border-radius: 10px;
+    box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px; 
+    margin-top: 10px;
+    table-layout: auto; 
+  }
+
+  .table th, .table td {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 10px 4px; 
+    vertical-align: middle;
+  }
+
+  .table thead th {
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: 600;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(50px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08),
+                inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    vertical-align: bottom; 
+    padding-bottom: 12px;
+  }
+
+  .table td:nth-child(n+3),
+  .table th:nth-child(n+3) {
+    text-align: center;
+  }
+
+  .table td:last-child {
+    text-align: left;
+    padding-left: 8px;
+  }
+
+  .str-total {
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.15);
+    text-align: center;
+  }
+
+  .vertical-text {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    display: inline-block;
+    white-space: normal; 
+    word-wrap: break-word;
+    max-height: 125px; 
+    text-align: left;
+    line-height: 1.2; 
+    margin: 0 auto;
+  }
+</style>

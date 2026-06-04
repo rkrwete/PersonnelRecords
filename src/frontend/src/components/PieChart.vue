@@ -69,12 +69,22 @@
           return angle + 90;
         },
         formatter: (value, ctx) => {
-          const displayValue = isNaN(value) ? 0 : value
-          const label = ctx.chart.data.labels[ctx.dataIndex]
-          // Укорачиваем длинные названия
-          const shortLabel = label.length > 15 ? label.slice(0, 12) + '...' : label
-          // Число в конце без переноса строки
-          return `${shortLabel} ${displayValue}`
+          const dataset = ctx.chart.data.datasets[0];
+          const total = dataset.data.reduce((a, b) => a + b, 0);
+          
+          const rawValue = isNaN(value) ? 0 : value;
+          const label = ctx.chart.data.labels[ctx.dataIndex];
+
+          if (ctx.chart.options.plugins.title?.text === 'Отсутствующие по категориям' || props.title === 'Отсутствующие по категориям') {
+            const percentage = total > 0 ? ((rawValue / total) * 100).toFixed(1) : 0;
+            const isAbbreviation = label === label.toUpperCase() && label.trim().length > 1;
+            const shortLabel = isAbbreviation ? label : label.charAt(0).toUpperCase();
+            
+            return `${shortLabel} - ${percentage}%`;
+          }
+
+          const shortLabel = label.length > 15 ? label.slice(0, 12) + '...' : label;
+          return `${shortLabel} ${rawValue}`;
         }
       }
     }

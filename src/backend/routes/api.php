@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/notes', [CalendarNoteController::class, 'store']);
         Route::put('/notes/{id}', [CalendarNoteController::class, 'update']);
         Route::delete('/notes/{id}', [CalendarNoteController::class, 'destroy']);
+       // Route::delete('/upcoming-reminders', [CalendarNoteController::class, 'upcomingReminders']);
     });
 });
 
@@ -61,3 +62,5 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::get('/duty-roster/export/{unitId}', [DutyRosterExportController::class, 'export']);
 // получение строевой записки на академию
 Route::get('/academic-duty-roster/export/{unitId?}', [AcademicDutyRosterController::class, 'export']);
+
+Route::get('/calendar/upcoming-reminders', [CalendarNoteController::class, 'upcomingReminders']);
