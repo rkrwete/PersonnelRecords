@@ -2,7 +2,7 @@
   <HeaderFirst />
   <div class="page">
     <div class="layout">
-      <!-- Левая боковая панель - ЗАМЕТКИ -->
+      <!-- Левая боковая панель - ЗАМЕТКИ (только десктоп) -->
       <div class="sidebar">
         <div class="title">Мои заметки</div>
         <div class="notes-list-sidebar" v-if="allNotes.length">
@@ -17,6 +17,7 @@
       <!-- Основной контент - календарь -->
       <div class="content">
         <div class="card">
+          <!-- Десктоп-хедер -->
           <div class="header-block">
             <div class="header-text">
               <div class="title">Календарь памятных дат</div>
@@ -27,6 +28,17 @@
               <button class="header-btn today-btn" @click="goToToday">Сегодня</button>
               <button class="header-btn" @click="nextMonth">Следующий →</button>
             </div>
+          </div>
+
+          <!-- Мобильный хедер -->
+          <div class="mobile-header">
+            <button class="mobile-arrow-btn" @click="previousMonth">‹</button>
+            <div class="mobile-header-center">
+              <span class="mobile-cal-title">Памятные даты</span>
+              <span class="mobile-month-year">{{ currentMonthName }} {{ currentYear }}</span>
+              <button class="mobile-today-btn" @click="goToToday">Сегодня</button>
+            </div>
+            <button class="mobile-arrow-btn" @click="nextMonth">›</button>
           </div>
 
           <div class="calendar">
@@ -85,6 +97,9 @@
                   </div>
                 </div>
               </div>
+              <div v-else>
+                <div class="notes-title" style="text-align: center">Нет заметок на эту дату</div>
+              </div>
 
               <div v-if="editingNoteId" class="edit-note-section">
                 <div class="notes-title">Редактирование заметки:</div>
@@ -108,6 +123,46 @@
       </div>
     </div>
   </div>
+
+  <!-- FAB для заметок (только мобиле) -->
+  <button class="notes-fab" @click="isDrawerOpen = true" aria-label="Открыть заметки">
+    📝
+    <span v-if="allNotes.length" class="fab-badge">{{ allNotes.length }}</span>
+  </button>
+
+  <!-- Drawer с заметками (мобиле) -->
+  <Teleport to="body">
+    <Transition name="backdrop-fade">
+      <div v-if="isDrawerOpen" class="drawer-backdrop" @click="isDrawerOpen = false" />
+    </Transition>
+    <Transition name="drawer-up">
+      <div v-if="isDrawerOpen" class="notes-drawer" @touchstart="onDrawerTouchStart" @touchend="onDrawerTouchEnd">
+        <div class="drawer-grip" @click="isDrawerOpen = false"></div>
+        <div class="drawer-top">
+          <span class="drawer-heading">Мои заметки</span>
+          <button class="drawer-x-btn" @click="isDrawerOpen = false">×</button>
+        </div>
+        <div class="drawer-body">
+          <div class="notes-list-sidebar" v-if="allNotes.length">
+            <div
+              v-for="note in sortedNotes"
+              :key="note.id"
+              class="note-item-sidebar"
+              @click="
+                selectNoteDate(note.date);
+                isDrawerOpen = false;
+              "
+            >
+              <div class="note-date-sidebar">{{ formatDateLong(note.date) }}</div>
+              <div class="note-preview-sidebar">{{ note.content.substring(0, 50) }}...</div>
+            </div>
+          </div>
+          <div v-else class="empty-notes-sidebar">Нет заметок</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <!-- Toast notifications -->
   <Teleport to="body">
     <div class="toast-container">
@@ -128,7 +183,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import api from "../services/api.js";
 import Header from "./Header.vue";
 import HeaderFirst from "./HeaderFirst.vue";
@@ -143,6 +198,30 @@ const editNoteContent = ref("");
 const editingNoteId = ref(null);
 const saving = ref(false);
 
+// Drawer
+const isDrawerOpen = ref(false);
+let drawerTouchStartY = 0;
+
+function onDrawerTouchStart(e) {
+  drawerTouchStartY = e.touches[0].clientY;
+}
+
+function onDrawerTouchEnd(e) {
+  const delta = e.changedTouches[0].clientY - drawerTouchStartY;
+  if (delta > 60) {
+    isDrawerOpen.value = false;
+  }
+}
+
+// Блокировка скролла при открытом drawer
+watch(isDrawerOpen, (val) => {
+  document.body.style.overflow = val ? "hidden" : "";
+});
+
+onUnmounted(() => {
+  document.body.style.overflow = "";
+});
+
 // Toast
 const toasts = ref([]);
 let toastId = 0;
@@ -150,12 +229,10 @@ let toastId = 0;
 function showToast(message, type = "success") {
   const id = ++toastId;
   toasts.value.push({ id, message, type, visible: false });
-  // Trigger enter animation on next tick
   setTimeout(() => {
     const t = toasts.value.find((t) => t.id === id);
     if (t) t.visible = true;
   }, 10);
-  // Auto-dismiss after 3s
   setTimeout(() => dismissToast(id), 3200);
 }
 
@@ -177,7 +254,6 @@ const currentYear = computed(() => currentDate.value.getFullYear());
 const currentMonth = computed(() => currentDate.value.getMonth());
 const currentMonthName = computed(() => currentDate.value.toLocaleString("ru", { month: "long" }));
 
-// Сортировка заметок по календарной дате (от старых к новым)
 const sortedNotes = computed(() => {
   return [...allNotes.value].sort((a, b) => new Date(a.date) - new Date(b.date));
 });
@@ -193,7 +269,7 @@ async function loadMemorableDates() {
   }
 }
 
-// Загрузка заметок с нормализацией дат
+// Загрузка заметок
 async function loadNotes() {
   try {
     const response = await api.get("/api/calendar/notes");
@@ -208,7 +284,6 @@ async function loadNotes() {
   }
 }
 
-// Получение памятных дат для конкретного месяца и года
 function getMemorableDatesForMonth(year, month) {
   return memorableDates.value
     .filter((md) => {
@@ -221,7 +296,6 @@ function getMemorableDatesForMonth(year, month) {
     }));
 }
 
-// Построение календарной сетки
 const calendarDays = computed(() => {
   const year = currentYear.value;
   const month = currentMonth.value;
@@ -254,7 +328,7 @@ const calendarDays = computed(() => {
     days.push({
       day: prevMonthLastDay - i,
       date: dayDate,
-      dateStr: dateStr,
+      dateStr,
       isCurrentMonth: false,
       isToday: false,
       hasMemorableDate: false,
@@ -273,7 +347,7 @@ const calendarDays = computed(() => {
     days.push({
       day: i,
       date: dayDate,
-      dateStr: dateStr,
+      dateStr,
       isCurrentMonth: true,
       isToday,
       hasMemorableDate: dayMemorableDates.length > 0,
@@ -289,7 +363,7 @@ const calendarDays = computed(() => {
     days.push({
       day: i,
       date: dayDate,
-      dateStr: dateStr,
+      dateStr,
       isCurrentMonth: false,
       isToday: false,
       hasMemorableDate: false,
@@ -301,7 +375,6 @@ const calendarDays = computed(() => {
   return days;
 });
 
-// Создание заметки
 async function createNote() {
   if (!selectedDay.value || !newNoteContent.value.trim()) return;
 
@@ -315,9 +388,7 @@ async function createNote() {
     newNoteContent.value = "";
 
     const updatedDay = calendarDays.value.find((d) => d.dateStr === selectedDay.value.dateStr);
-    if (updatedDay) {
-      selectedDay.value = updatedDay;
-    }
+    if (updatedDay) selectedDay.value = updatedDay;
     showToast("Заметка добавлена");
   } catch (error) {
     console.error("Ошибка создания заметки:", error);
@@ -327,7 +398,6 @@ async function createNote() {
   }
 }
 
-// Редактирование заметки
 function startEditNote(note) {
   editingNoteId.value = note.id;
   editNoteContent.value = note.content;
@@ -344,9 +414,7 @@ async function updateNote() {
     await loadNotes();
     cancelEdit();
     const updatedDay = calendarDays.value.find((d) => d.dateStr === selectedDay.value.dateStr);
-    if (updatedDay) {
-      selectedDay.value = updatedDay;
-    }
+    if (updatedDay) selectedDay.value = updatedDay;
     showToast("Заметка обновлена");
   } catch (error) {
     console.error("Ошибка обновления заметки:", error);
@@ -356,7 +424,6 @@ async function updateNote() {
   }
 }
 
-// Удаление заметки
 async function deleteNote(noteId) {
   if (!confirm("Удалить заметку?")) return;
 
@@ -364,9 +431,7 @@ async function deleteNote(noteId) {
     await api.delete(`/api/calendar/notes/${noteId}`);
     await loadNotes();
     const updatedDay = calendarDays.value.find((d) => d.dateStr === selectedDay.value.dateStr);
-    if (updatedDay) {
-      selectedDay.value = updatedDay;
-    }
+    if (updatedDay) selectedDay.value = updatedDay;
     showToast("Заметка удалена");
   } catch (error) {
     console.error("Ошибка удаления заметки:", error);
@@ -379,14 +444,12 @@ function cancelEdit() {
   editNoteContent.value = "";
 }
 
-// Выбор дня
 function selectDay(day) {
   selectedDay.value = day;
   newNoteContent.value = "";
   cancelEdit();
 }
 
-// Выбор заметки из левой панели
 function selectNoteDate(dateStr) {
   const day = calendarDays.value.find((d) => d.dateStr === dateStr);
   if (day) {
@@ -402,7 +465,6 @@ function closeModal() {
   cancelEdit();
 }
 
-// Навигация
 function previousMonth() {
   currentDate.value = new Date(currentYear.value, currentMonth.value - 1, 1);
 }
@@ -415,7 +477,6 @@ function goToToday() {
   currentDate.value = new Date();
 }
 
-// Форматирование дат
 function formatDateYMD(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -441,21 +502,17 @@ function formatDateLong(dateStr) {
   });
 }
 
-// Следим за изменением заметок
 watch(
   allNotes,
   () => {
     if (selectedDay.value) {
       const updatedDay = calendarDays.value.find((d) => d.dateStr === selectedDay.value.dateStr);
-      if (updatedDay) {
-        selectedDay.value = updatedDay;
-      }
+      if (updatedDay) selectedDay.value = updatedDay;
     }
   },
   { deep: true },
 );
 
-// Инициализация
 onMounted(async () => {
   await loadMemorableDates();
   await loadNotes();
@@ -463,6 +520,8 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ─── Базовый макет ────────────────────────────────────────── */
+
 .page {
   display: flex;
   width: 100%;
@@ -476,30 +535,26 @@ onMounted(async () => {
   gap: 20px;
   width: 100%;
   height: 100%;
-  @media (max-width: 1000px) {
-    flex-direction: column;
-  }
 }
+
+/* ─── Сайдбар ──────────────────────────────────────────────── */
 
 .sidebar {
   width: 320px;
   padding: 16px 10px;
   border-radius: 10px;
   box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
-  scrollbar-width: thin;
-
   overflow-y: auto;
-
-  @media (max-width: 1000px) {
-    width: 100%;
-    height: 200px;
-  }
+  scrollbar-width: thin;
 }
 
 .content {
   flex: 1;
   height: 100%;
+  min-width: 0;
 }
+
+/* ─── Карточка ─────────────────────────────────────────────── */
 
 .card {
   width: 100%;
@@ -507,7 +562,12 @@ onMounted(async () => {
   padding: 20px;
   border-radius: 10px;
   box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+
+/* ─── Десктоп-хедер ────────────────────────────────────────── */
 
 .header-block {
   display: flex;
@@ -553,6 +613,87 @@ onMounted(async () => {
   background: #45a049;
 }
 
+/* ─── Мобильный хедер ─────────────────────────────────────── */
+
+.mobile-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.mobile-arrow-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--btn);
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: "Tektur", sans-serif;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-arrow-btn:active {
+  background: var(--btn-hover);
+  transform: scale(0.93);
+}
+
+.mobile-header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-cal-title {
+  font-size: 11px;
+  opacity: 0.55;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: "Tektur", sans-serif;
+}
+
+.mobile-month-year {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: "Tektur", sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.mobile-today-btn {
+  padding: 3px 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  background: #4caf50;
+  color: white;
+  font-size: 11px;
+  font-family: "Tektur", sans-serif;
+  transition: background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-today-btn:active {
+  background: #388e3c;
+}
+
+/* ─── Заголовки ────────────────────────────────────────────── */
+
 .title {
   text-align: center;
   font-weight: 700;
@@ -567,13 +708,14 @@ onMounted(async () => {
   margin-bottom: 5px;
 }
 
-/* Календарь - фиксированные ячейки */
+/* ─── Календарная сетка ────────────────────────────────────── */
+
 .calendar {
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: calc(100% - 93px);
+  flex: 1;
+  min-height: 0;
 }
 
 .weekdays {
@@ -596,8 +738,10 @@ onMounted(async () => {
 .calendar-days {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 1fr;
   gap: 4px;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .calendar-day {
@@ -610,6 +754,7 @@ onMounted(async () => {
   flex-direction: column;
   transition: all 0.3s ease;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .calendar-day:hover {
@@ -654,10 +799,10 @@ onMounted(async () => {
   gap: 2px;
   flex: 1;
   overflow-y: auto;
+  scrollbar-width: thin;
   min-height: 0;
 }
 
-/* Стилизация скроллбара */
 .memorable-names::-webkit-scrollbar {
   width: 3px;
 }
@@ -698,7 +843,8 @@ onMounted(async () => {
   cursor: pointer;
 }
 
-/* Стили для списка заметок в левой панели */
+/* ─── Сайдбар-заметки ──────────────────────────────────────── */
+
 .notes-list-sidebar {
   display: flex;
   flex-direction: column;
@@ -740,7 +886,8 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-/* Модальное окно */
+/* ─── Модальное окно ───────────────────────────────────────── */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -904,6 +1051,7 @@ onMounted(async () => {
   resize: vertical;
   margin-bottom: 10px;
   font-size: 13px;
+  box-sizing: border-box;
 }
 
 .note-input:focus {
@@ -933,14 +1081,159 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-.loading-text {
-  text-align: center;
-  opacity: 0.6;
-  padding: 20px;
-  font-size: 12px;
+/* ─── FAB (мобиле) ─────────────────────────────────────────── */
+
+.notes-fab {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: #2196f3;
+  color: white;
+  font-size: 22px;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(33, 150, 243, 0.45);
+  z-index: 500;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Toast notifications */
+.notes-fab:active {
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.35);
+}
+
+.fab-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: #ff5722;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Tektur", sans-serif;
+}
+
+/* ─── Drawer (мобиле) ──────────────────────────────────────── */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 800;
+}
+
+.notes-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg, #1a1a2e);
+  border-radius: 20px 20px 0 0;
+  padding: 0 16px env(safe-area-inset-bottom, 16px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  z-index: 900;
+  max-height: 75dvh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+}
+
+.drawer-grip {
+  width: 44px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  margin: 14px auto 12px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.drawer-grip:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.drawer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.drawer-heading {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: "Tektur", sans-serif;
+}
+
+.drawer-x-btn {
+  background: none;
+  border: none;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text);
+  opacity: 0.6;
+  padding: 0 4px;
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drawer-x-btn:active {
+  opacity: 1;
+}
+
+.drawer-body {
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  padding-bottom: 8px;
+}
+
+/* ─── Анимации Drawer ──────────────────────────────────────── */
+
+.backdrop-fade-enter-active,
+.backdrop-fade-leave-active {
+  transition: opacity 0.28s ease;
+}
+
+.backdrop-fade-enter-from,
+.backdrop-fade-leave-to {
+  opacity: 0;
+}
+
+.drawer-up-enter-active,
+.drawer-up-leave-active {
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer-up-enter-from,
+.drawer-up-leave-to {
+  transform: translateY(100%);
+}
+
+/* ─── Toast ────────────────────────────────────────────────── */
+
 .toast-container {
   position: fixed;
   bottom: 24px;
@@ -1027,5 +1320,144 @@ onMounted(async () => {
 .toast-leave-to {
   opacity: 0;
   transform: translateX(30px);
+}
+
+/* ─── Мобиле ≤ 768px ───────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .page {
+    padding: 8px 6px;
+    /* height: calc(100dvh - 60px); */
+  }
+
+  /* Скрыть сайдбар — заметки доступны через drawer */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Layout: без flex-direction override от 1000px медиа — только content */
+  .layout {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .content {
+    height: 100%;
+  }
+
+  .card {
+    padding: 10px 8px;
+  }
+
+  /* Переключение хедеров */
+  .header-block {
+    display: none;
+  }
+
+  .mobile-header {
+    display: flex;
+  }
+
+  /* FAB видим */
+  .notes-fab {
+    display: flex;
+  }
+
+  /* Ячейки календаря компактнее */
+  .weekday {
+    padding: 5px 0;
+    font-size: 11px;
+  }
+
+  .calendar-day {
+    padding: 3px 2px;
+    border-radius: 5px;
+  }
+
+  .day-number {
+    font-size: 12px;
+    margin-bottom: 1px;
+  }
+
+  .memorable-name {
+    font-size: 7px;
+    padding: 1px 2px;
+  }
+
+  .notes-count {
+    font-size: 9px;
+    padding: 1px 2px;
+  }
+
+  /* Модал как bottom-sheet */
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+    padding: 16px;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+
+  .modal-header h3 {
+    font-size: 14px;
+  }
+
+  /* Toast на мобиле — по центру снизу */
+  .toast-container {
+    bottom: 16px;
+    right: 8px;
+    left: 8px;
+    align-items: center;
+  }
+
+  .toast {
+    min-width: unset;
+    width: 100%;
+    max-width: 420px;
+    font-size: 13px;
+    transform: translateY(20px);
+  }
+
+  .toast.toast-visible {
+    transform: translateY(0);
+  }
+
+  .toast-enter-from,
+  .toast-leave-to {
+    transform: translateY(20px);
+  }
+}
+
+/* ─── Очень маленькие экраны ≤ 390px ──────────────────────── */
+
+@media (max-width: 390px) {
+  .day-number {
+    font-size: 11px;
+  }
+
+  .weekday {
+    font-size: 10px;
+    padding: 4px 0;
+  }
+
+  .memorable-name {
+    font-size: 6px;
+  }
+
+  .mobile-month-year {
+    font-size: 14px;
+  }
+
+  .mobile-arrow-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 22px;
+  }
 }
 </style>
