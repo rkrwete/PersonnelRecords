@@ -76,6 +76,7 @@
       <!-- Основной контент - календарь -->
       <div class="content">
         <div class="card">
+          <!-- Десктоп-хедер -->
           <div class="header-block">
             <div class="header-text">
               <div class="title">Календарь заметок и событий</div>
@@ -86,6 +87,17 @@
               <button class="header-btn today-btn" @click="goToToday">Сегодня</button>
               <button class="header-btn" @click="nextMonth">Следующий →</button>
             </div>
+          </div>
+
+          <!-- Мобильный хедер -->
+          <div class="mobile-header">
+            <button class="mobile-arrow-btn" @click="previousMonth">‹</button>
+            <div class="mobile-header-center">
+              <span class="mobile-cal-title">Памятные даты</span>
+              <span class="mobile-month-year">{{ currentMonthName }} {{ currentYear }}</span>
+              <button class="mobile-today-btn" @click="goToToday">Сегодня</button>
+            </div>
+            <button class="mobile-arrow-btn" @click="nextMonth">›</button>
           </div>
 
           <div class="calendar">
@@ -106,7 +118,7 @@
               >
                 <div class="day-number">{{ day.day }}</div>
                 
-                <!-- Компактное отображение заметок (максимум 3, остальные сворачиваются) -->
+                <!-- Компактное отображение заметок -->
                 <div class="calendar-note-previews" v-if="day.notes && day.notes.length > 0">
                   <div 
                     v-for="note in day.notes.slice(0, 3)" 
@@ -157,6 +169,9 @@
                     </div>
                   </div>
                 </div>
+              </div>
+              <div v-else>
+                <div class="notes-title" style="text-align: center">Нет заметок на эту дату</div>
               </div>
 
               <!-- Форма создания новой заметки -->
@@ -255,7 +270,46 @@
       </div>
     </div>
   </div>
-  
+
+  <!-- FAB для заметок (только мобиле) -->
+  <button class="notes-fab" @click="isDrawerOpen = true" aria-label="Открыть заметки">
+    📝
+    <span v-if="allNotes.length" class="fab-badge">{{ allNotes.length }}</span>
+  </button>
+
+  <!-- Drawer с заметками (мобиле) -->
+  <Teleport to="body">
+    <Transition name="backdrop-fade">
+      <div v-if="isDrawerOpen" class="drawer-backdrop" @click="isDrawerOpen = false" />
+    </Transition>
+    <Transition name="drawer-up">
+      <div v-if="isDrawerOpen" class="notes-drawer" @touchstart="onDrawerTouchStart" @touchend="onDrawerTouchEnd">
+        <div class="drawer-grip" @click="isDrawerOpen = false"></div>
+        <div class="drawer-top">
+          <span class="drawer-heading">Мои заметки</span>
+          <button class="drawer-x-btn" @click="isDrawerOpen = false">×</button>
+        </div>
+        <div class="drawer-body">
+          <div class="notes-list-sidebar" v-if="allNotes.length">
+            <div
+              v-for="note in sortedNotes"
+              :key="note.id"
+              class="note-item-sidebar"
+              @click="
+                selectNoteDate(note.date);
+                isDrawerOpen = false;
+              "
+            >
+              <div class="note-date-sidebar">{{ formatDateLong(note.date) }}</div>
+              <div class="note-preview-sidebar">{{ note.content.substring(0, 50) }}...</div>
+            </div>
+          </div>
+          <div v-else class="empty-notes-sidebar">Нет заметок</div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
   <!-- Toast notifications -->
   <Teleport to="body">
     <div class="toast-container">
@@ -276,7 +330,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from "vue";
 import api from "../services/api.js";
 import CalendarHeader from "./CalendarHeader.vue";
 import notificationService from "../services/notificationService.js";
@@ -307,6 +361,26 @@ const scrollIndex = ref(0);
 
 // Интервал проверки напоминаний
 let reminderCheckInterval = null;
+
+// Drawer
+const isDrawerOpen = ref(false);
+let drawerTouchStartY = 0;
+
+function onDrawerTouchStart(e) {
+  drawerTouchStartY = e.touches[0].clientY;
+}
+
+function onDrawerTouchEnd(e) {
+  const delta = e.changedTouches[0].clientY - drawerTouchStartY;
+  if (delta > 60) {
+    isDrawerOpen.value = false;
+  }
+}
+
+// Блокировка скролла при открытом drawer
+watch(isDrawerOpen, (val) => {
+  document.body.style.overflow = val ? "hidden" : "";
+});
 
 // Toast
 const toasts = ref([]);
@@ -340,6 +414,10 @@ const currentYear = computed(() => currentDate.value.getFullYear());
 const currentMonth = computed(() => currentDate.value.getMonth());
 const currentMonthName = computed(() => currentDate.value.toLocaleString("ru", { month: "long" }));
 
+const sortedNotes = computed(() => {
+  return [...allNotes.value].sort((a, b) => new Date(a.date) - new Date(b.date));
+});
+
 // Группировка заметок по датам
 const notesByDate = computed(() => {
   const map = new Map();
@@ -353,7 +431,7 @@ const notesByDate = computed(() => {
   return map;
 });
 
-// Все карточки дней (с добавлением текущего дня, даже если нет заметок)
+// Все карточки дней
 const dayCards = computed(() => {
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -365,10 +443,9 @@ const dayCards = computed(() => {
     isCurrentDay: true
   };
   
-  // Получаем все даты с заметками
   const dates = Array.from(notesByDate.value.keys())
-    .map(d => d.split('T')[0]) // нормализуем
-    .filter((value, index, self) => self.indexOf(value) === index) // уникальные
+    .map(d => d.split('T')[0])
+    .filter((value, index, self) => self.indexOf(value) === index)
     .sort();
   
   const cards = dates.map(dateStr => ({
@@ -394,20 +471,18 @@ const dayCards = computed(() => {
   
   return cards;
 });
-// Отображаемые карточки с учётом скролла
+
 const displayedDayCards = computed(() => {
   const start = scrollIndex.value;
   const end = start + visibleCardsCount.value;
   return dayCards.value.slice(start, end);
 });
 
-// Найти индекс текущего дня
 const findTodayIndex = () => {
   const todayStr = formatDateYMD(new Date());
   return dayCards.value.findIndex(card => card.dateStr === todayStr);
 };
 
-// Сброс к позиции: 2 предыдущие карточки, текущая, и далее с центрированием текущего дня
 function resetToTodayView() {
   setTimeout(() => {
     const todayIndex = findTodayIndex();
@@ -437,7 +512,6 @@ function resetToTodayView() {
   }, 100);
 }
 
-// Прокрутка вверх/вниз
 function scrollUp() {
   if (scrollIndex.value > 0) {
     scrollIndex.value = Math.max(0, scrollIndex.value - 1);
@@ -490,7 +564,6 @@ function getNotePreview(note) {
   return text;
 }
 
-// Получить текст типа напоминания
 function getReminderTypeText(type) {
   const types = {
     once: 'Один раз',
@@ -502,21 +575,17 @@ function getReminderTypeText(type) {
   return types[type] || type;
 }
 
-
-// Построение календарной сетки
 // Построение календарной сетки
 const calendarDays = computed(() => {
   const year = currentYear.value;
   const month = currentMonth.value;
   
-  // Первый день месяца
   const firstDayOfMonth = new Date(year, month, 1);
   let startWeekday = firstDayOfMonth.getDay();
   startWeekday = startWeekday === 0 ? 6 : startWeekday - 1;
   
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   
-  // Группируем заметки по датам
   const notesMap = new Map();
   allNotes.value.forEach((note) => {
     if (note && note.date) {
@@ -529,7 +598,6 @@ const calendarDays = computed(() => {
           noteDate = year + '-' + dateParts[1] + '-' + dateParts[2];
         }
       } else {
-        // Обычная заметка
         if (noteDate.includes('T')) {
           noteDate = noteDate.split('T')[0];
         }
@@ -604,7 +672,6 @@ const calendarDays = computed(() => {
   return days;
 });
 
-
 // Отправка уведомления
 function sendNotificationForNote(note, dateStr) {
   if (!notificationService.hasPermission()) return;
@@ -632,13 +699,9 @@ async function checkTimeReminders() {
     console.log('Текущее время:', new Date().toLocaleTimeString());
     
     const response = await api.get("/api/calendar/upcoming-reminders");
-    
-    // Выводим полный ответ от сервера для отладки
     console.log('Полный ответ от сервера:', response.data);
     
     let reminders = [];
-    
-    // Если есть отладочная информация от сервера
     if (response.data && typeof response.data === 'object') {
       if (response.data.debug) {
         console.log('=== ОТЛАДОЧНАЯ ИНФОРМАЦИЯ ===');
@@ -670,7 +733,6 @@ async function checkTimeReminders() {
         }
       });
       
-      // Отмечаем, что уведомление отправлено
       try {
         await api.put(`/api/calendar/notes/${reminder.id}`, {
           ...reminder,
@@ -685,6 +747,7 @@ async function checkTimeReminders() {
     console.error('Ошибка проверки напоминаний:', error);
   }
 }
+
 // Создание заметки
 async function createNote() {
   if (!selectedDay.value || !newNoteContent.value.trim()) return;
@@ -702,7 +765,6 @@ async function createNote() {
     let reminderType = newNoteReminderType.value;
     let reminderTime = newNoteReminderTime.value;
     
-    // Если это ежегодная заметка - принудительно ставим monthly
     if (newNoteIsRecurring.value) {
       reminderType = 'monthly';
       reminderTime = newNoteReminderTime.value || '09:00:00';
@@ -736,7 +798,6 @@ async function createNote() {
   }
 }
 
-// Редактирование заметки
 function startEditNote(note) {
   editingNoteId.value = note.id;
   editNoteTitle.value = note.title || "";
@@ -755,7 +816,6 @@ async function updateNote() {
     let reminderType = editNoteReminderType.value;
     let reminderTime = editNoteReminderTime.value;
     
-    // Если это ежегодная заметка - принудительно ставим monthly
     if (editNoteIsRecurring.value) {
       reminderType = 'monthly';
       reminderTime = editNoteReminderTime.value || '09:00:00';
@@ -785,7 +845,6 @@ async function updateNote() {
   }
 }
 
-// Удаление заметки
 async function deleteNote(noteId) {
   try {
     await api.delete(`/api/calendar/notes/${noteId}`);
@@ -816,7 +875,6 @@ function cancelEdit() {
 function selectDayFromCalendar(day) {
   console.log('=== ВЫБОР ДНЯ ===');
   
-  // Создаём правильную дату из day.day, текущего года и месяца
   const year = currentYear.value;
   const month = currentMonth.value;
   const dayNum = day.day;
@@ -846,7 +904,6 @@ function selectDayFromCalendar(day) {
 }
 
 function selectDayFromCard(dateStr) {
-  // Нормализуем дату
   const normalizedDateStr = dateStr.split('T')[0];
   const day = calendarDays.value.find((d) => {
     const dStr = d.dateStr ? d.dateStr.split('T')[0] : d.dateStr;
@@ -859,6 +916,15 @@ function selectDayFromCard(dateStr) {
   }
 }
 
+function selectNoteDate(dateStr) {
+  const day = calendarDays.value.find((d) => d.dateStr === dateStr);
+  if (day) {
+    selectDayFromCalendar(day);
+    const date = new Date(dateStr);
+    currentDate.value = new Date(date.getFullYear(), date.getMonth(), 1);
+  }
+}
+
 function closeModal() {
   selectedDay.value = null;
   newNoteTitle.value = "";
@@ -866,7 +932,6 @@ function closeModal() {
   cancelEdit();
 }
 
-// Навигация
 function previousMonth() {
   currentDate.value = new Date(currentYear.value, currentMonth.value - 1, 1);
 }
@@ -881,7 +946,6 @@ function goToToday() {
   resetToTodayView();
 }
 
-// Форматирование дат
 function formatDateYMD(date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -900,17 +964,26 @@ function formatDateLong(dateStr) {
   });
 }
 
-
+watch(
+  allNotes,
+  () => {
+    if (selectedDay.value) {
+      const updatedDay = calendarDays.value.find((d) => d.dateStr === selectedDay.value.dateStr);
+      if (updatedDay) {
+        selectedDay.value = updatedDay;
+      }
+    }
+  },
+  { deep: true },
+);
 
 onMounted(async () => {
   await loadNotes();
   resetToTodayView();
   
-  // Первая проверка сразу после загрузки
   console.log('Запуск первой проверки напоминаний...');
   checkTimeReminders();
   
-  // Запускаем интервал проверки каждую минуту
   reminderCheckInterval = setInterval(() => {
     console.log('Проверка напоминаний:', new Date().toLocaleTimeString());
     checkTimeReminders();
@@ -922,10 +995,13 @@ onUnmounted(() => {
     clearInterval(reminderCheckInterval);
     reminderCheckInterval = null;
   }
+  document.body.style.overflow = "";
 });
 </script>
 
 <style scoped>
+/* ─── Базовый макет ────────────────────────────────────────── */
+
 .page {
   display: flex;
   width: 100%;
@@ -951,13 +1027,8 @@ onUnmounted(() => {
   height: 100%;
 }
 
-@media (max-width: 1000px) {
-  .layout {
-    flex-direction: column;
-  }
-}
+/* ─── Сайдбар ──────────────────────────────────────────────── */
 
-/* Левая панель - карточки */
 .sidebar {
   width: 380px;
   padding: 16px 10px;
@@ -967,13 +1038,8 @@ onUnmounted(() => {
   flex-direction: column;
   height: 100%;
   background: var(--bg);
-}
-
-@media (max-width: 1000px) {
-  .sidebar {
-    width: 100%;
-    height: 400px;
-  }
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .sidebar-header {
@@ -1174,6 +1240,7 @@ onUnmounted(() => {
 .content {
   flex: 1;
   height: 100%;
+  min-width: 0;
 }
 
 .card {
@@ -1182,7 +1249,12 @@ onUnmounted(() => {
   padding: 20px;
   border-radius: 10px;
   box-shadow: 2px 2px 5px 3px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
+
+/* ─── Десктоп-хедер ────────────────────────────────────────── */
 
 .header-block {
   display: flex;
@@ -1228,6 +1300,87 @@ onUnmounted(() => {
   background: #45a049;
 }
 
+/* ─── Мобильный хедер ─────────────────────────────────────── */
+
+.mobile-header {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.mobile-arrow-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: var(--btn);
+  color: var(--text);
+  font-size: 26px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: "Tektur", sans-serif;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-arrow-btn:active {
+  background: var(--btn-hover);
+  transform: scale(0.93);
+}
+
+.mobile-header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-cal-title {
+  font-size: 11px;
+  opacity: 0.55;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: "Tektur", sans-serif;
+}
+
+.mobile-month-year {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: "Tektur", sans-serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.mobile-today-btn {
+  padding: 3px 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  background: #4caf50;
+  color: white;
+  font-size: 11px;
+  font-family: "Tektur", sans-serif;
+  transition: background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-today-btn:active {
+  background: #388e3c;
+}
+
+/* ─── Заголовки ────────────────────────────────────────────── */
+
 .title {
   text-align: center;
   font-weight: 700;
@@ -1242,11 +1395,14 @@ onUnmounted(() => {
   margin-bottom: 5px;
 }
 
+/* ─── Календарная сетка ────────────────────────────────────── */
+
 .calendar {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: calc(100% - 93px);
+  flex: 1;
+  min-height: 0;
 }
 
 .weekdays {
@@ -1270,7 +1426,8 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .calendar-day {
@@ -1283,6 +1440,8 @@ onUnmounted(() => {
   flex-direction: column;
   transition: all 0.3s ease;
   min-height: 85px;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .calendar-day:hover {
@@ -1375,7 +1534,200 @@ onUnmounted(() => {
   background: rgba(255, 152, 0, 0.2);
 }
 
-/* Модальное окно */
+/* ─── Сайдбар-заметки ──────────────────────────────────────── */
+
+.notes-list-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.note-item-sidebar {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(33, 150, 243, 0.1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 3px solid #2196f3;
+}
+
+.note-item-sidebar:hover {
+  background: rgba(33, 150, 243, 0.2);
+  transform: translateX(3px);
+}
+
+.note-date-sidebar {
+  font-size: 12px;
+  font-weight: bold;
+  color: #2196f3;
+  margin-bottom: 6px;
+}
+
+.note-preview-sidebar {
+  font-size: 11px;
+  opacity: 0.8;
+  word-wrap: break-word;
+}
+
+.empty-notes-sidebar {
+  text-align: center;
+  opacity: 0.6;
+  padding: 40px 20px;
+  font-size: 14px;
+}
+
+/* ─── FAB (мобиле) ─────────────────────────────────────────── */
+
+.notes-fab {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: #2196f3;
+  color: white;
+  font-size: 22px;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(33, 150, 243, 0.45);
+  z-index: 500;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.notes-fab:active {
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.35);
+}
+
+.fab-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background: #ff5722;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Tektur", sans-serif;
+}
+
+/* ─── Drawer (мобиле) ──────────────────────────────────────── */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 800;
+}
+
+.notes-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg, #1a1a2e);
+  border-radius: 20px 20px 0 0;
+  padding: 0 16px env(safe-area-inset-bottom, 16px);
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  z-index: 900;
+  max-height: 75dvh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.5);
+  will-change: transform;
+}
+
+.drawer-grip {
+  width: 44px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+  margin: 14px auto 12px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.drawer-grip:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.drawer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.drawer-heading {
+  font-size: 17px;
+  font-weight: 700;
+  font-family: "Tektur", sans-serif;
+}
+
+.drawer-x-btn {
+  background: none;
+  border: none;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text);
+  opacity: 0.6;
+  padding: 0 4px;
+  transition: opacity 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drawer-x-btn:active {
+  opacity: 1;
+}
+
+.drawer-body {
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  padding-bottom: 8px;
+}
+
+/* ─── Анимации Drawer ──────────────────────────────────────── */
+
+.backdrop-fade-enter-active,
+.backdrop-fade-leave-active {
+  transition: opacity 0.28s ease;
+}
+
+.backdrop-fade-enter-from,
+.backdrop-fade-leave-to {
+  opacity: 0;
+}
+
+.drawer-up-enter-active,
+.drawer-up-leave-active {
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer-up-enter-from,
+.drawer-up-leave-to {
+  transform: translateY(100%);
+}
+
+/* ─── Модальное окно ───────────────────────────────────────── */
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1588,7 +1940,6 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-/* Стили для опций select */
 .select-input option {
   background: var(--bg-card, #2a2a2a);
   color: var(--text, #fff);
@@ -1643,6 +1994,7 @@ onUnmounted(() => {
   font-family: inherit;
   margin-bottom: 10px;
   font-size: 13px;
+  box-sizing: border-box;
 }
 
 .note-input:focus {
@@ -1672,7 +2024,8 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
-/* Toast notifications */
+/* ─── Toast ────────────────────────────────────────────────── */
+
 .toast-container {
   position: fixed;
   bottom: 24px;
@@ -1744,5 +2097,149 @@ onUnmounted(() => {
 
 .toast-message {
   flex: 1;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+/* ─── Мобиле ≤ 768px ───────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .page {
+    padding: 8px 6px;
+  }
+
+  .sidebar {
+    display: none !important;
+  }
+
+  .layout {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .content {
+    height: 100%;
+  }
+
+  .card {
+    padding: 10px 8px;
+  }
+
+  .header-block {
+    display: none;
+  }
+
+  .mobile-header {
+    display: flex;
+  }
+
+  .notes-fab {
+    display: flex;
+  }
+
+  .weekday {
+    padding: 5px 0;
+    font-size: 11px;
+  }
+
+  .calendar-day {
+    padding: 3px 2px;
+    border-radius: 5px;
+    min-height: 60px;
+  }
+
+  .day-number {
+    font-size: 12px;
+    margin-bottom: 1px;
+  }
+
+  .calendar-note-preview {
+    font-size: 7px;
+    padding: 1px 2px;
+  }
+
+  .notes-count {
+    font-size: 9px;
+    padding: 1px 2px;
+  }
+
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0;
+    padding: 16px;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+
+  .modal-header h3 {
+    font-size: 14px;
+  }
+
+  .toast-container {
+    bottom: 16px;
+    right: 8px;
+    left: 8px;
+    align-items: center;
+  }
+
+  .toast {
+    min-width: unset;
+    width: 100%;
+    max-width: 420px;
+    font-size: 13px;
+    transform: translateY(20px);
+  }
+
+  .toast.toast-visible {
+    transform: translateY(0);
+  }
+
+  .toast-enter-from,
+  .toast-leave-to {
+    transform: translateY(20px);
+  }
+}
+
+/* ─── Очень маленькие экраны ≤ 390px ──────────────────────── */
+
+@media (max-width: 390px) {
+  .day-number {
+    font-size: 11px;
+  }
+
+  .weekday {
+    font-size: 10px;
+    padding: 4px 0;
+  }
+
+  .calendar-note-preview {
+    font-size: 6px;
+    padding: 1px;
+  }
+
+  .mobile-month-year {
+    font-size: 14px;
+  }
+
+  .mobile-arrow-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 22px;
+  }
 }
 </style>
