@@ -165,6 +165,7 @@
                 <input v-model="newNoteTitle" class="note-input" type="text" placeholder="Заголовок (необязательно)" />
                 <textarea v-model="newNoteContent" class="note-input" rows="3" placeholder="Текст заметки..."></textarea>
                 
+                <!-- Настройки напоминания -->
                 <div class="reminder-settings">
                   <div class="form-group">
                     <label class="form-label">⏰ Время напоминания:</label>
@@ -190,7 +191,8 @@
                 
                 <div class="note-options">
                   <label class="checkbox-label">
-                    <input type="checkbox" v-model="newNoteIsRecurring" /> Повторяющаяся (ежегодно)
+                    <input type="checkbox" v-model="newNoteIsRecurring" /> 
+                    Повторяющаяся (ежегодно) - дни рождения, праздники
                   </label>
                   <div class="color-picker">
                     <span>Цвет:</span>
@@ -353,57 +355,45 @@ const notesByDate = computed(() => {
 
 // Все карточки дней (с добавлением текущего дня, даже если нет заметок)
 const dayCards = computed(() => {
-  const todayStr = formatDateYMD(new Date());
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   
+  const todayCard = {
+    dateStr: todayStr,
+    notes: [],
+    isPast: false,
+    isCurrentDay: true
+  };
+  
+  // Получаем все даты с заметками
   const dates = Array.from(notesByDate.value.keys())
-    .sort((a, b) => {
-      const dateA = new Date(a);
-      const dateB = new Date(b);
-      return dateA - dateB;
-    });
+    .map(d => d.split('T')[0]) // нормализуем
+    .filter((value, index, self) => self.indexOf(value) === index) // уникальные
+    .sort();
   
   const cards = dates.map(dateStr => ({
-    dateStr,
+    dateStr: dateStr,
     notes: notesByDate.value.get(dateStr) || [],
-    isPast: new Date(dateStr) < new Date() && dateStr !== todayStr,
+    isPast: new Date(dateStr) < new Date(todayStr) && dateStr !== todayStr,
     isCurrentDay: dateStr === todayStr
   }));
   
   const hasTodayCard = cards.some(card => card.dateStr === todayStr);
   
   if (!hasTodayCard) {
-    const todayCard = {
-      dateStr: todayStr,
-      notes: notesByDate.value.get(todayStr) || [],
-      isPast: false,
-      isCurrentDay: true
-    };
-    
     let insertIndex = 0;
     for (let i = 0; i < cards.length; i++) {
-      if (new Date(cards[i].dateStr) > new Date(todayStr)) {
+      if (cards[i].dateStr > todayStr) {
         insertIndex = i;
         break;
       }
       insertIndex = i + 1;
     }
-    
     cards.splice(insertIndex, 0, todayCard);
-  } else {
-    const todayCardIndex = cards.findIndex(card => card.dateStr === todayStr);
-    if (todayCardIndex !== -1) {
-      cards[todayCardIndex] = {
-        ...cards[todayCardIndex],
-        notes: notesByDate.value.get(todayStr) || [],
-        isCurrentDay: true,
-        isPast: false
-      };
-    }
   }
   
   return cards;
 });
-
 // Отображаемые карточки с учётом скролла
 const displayedDayCards = computed(() => {
   const start = scrollIndex.value;
@@ -475,11 +465,15 @@ function scrollDown() {
 async function loadNotes() {
   try {
     const response = await api.get("/api/calendar/notes");
+    console.log('=== ЗАГРУЗКА ЗАМЕТОК ===');
+    console.log('Ответ от сервера:', response.data);
+    
     allNotes.value = (Array.isArray(response.data) ? response.data : []).map((note) => ({
       ...note,
-      date: note.date ? note.date.split("T")[0] : note.date,
+      date: note.date ? note.date.split('T')[0] : note.date,
     }));
-    console.log("Загружено заметок:", allNotes.value.length);
+    
+    console.log('Обработанные заметки:', allNotes.value.map(n => ({ id: n.id, date: n.date, content: n.content.substring(0, 20) })));
     resetToTodayView();
   } catch (error) {
     console.error("Ошибка загрузки заметок:", error);
@@ -508,83 +502,109 @@ function getReminderTypeText(type) {
   return types[type] || type;
 }
 
+
+// Построение календарной сетки
 // Построение календарной сетки
 const calendarDays = computed(() => {
   const year = currentYear.value;
   const month = currentMonth.value;
-
-  const firstDayOfMonth = new Date(Date.UTC(year, month, 1));
-  let startWeekday = firstDayOfMonth.getUTCDay();
-  startWeekday = startWeekday === 0 ? 6 : startWeekday - 1;
-
-  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   
+  // Первый день месяца
+  const firstDayOfMonth = new Date(year, month, 1);
+  let startWeekday = firstDayOfMonth.getDay();
+  startWeekday = startWeekday === 0 ? 6 : startWeekday - 1;
+  
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  
+  // Группируем заметки по датам
   const notesMap = new Map();
   allNotes.value.forEach((note) => {
     if (note && note.date) {
-      const dateParts = note.date.split('-');
+      let noteDate = note.date;
+      
+      // Если это ежегодная заметка, подставляем текущий год
+      if (note.is_recurring) {
+        const dateParts = noteDate.split('-');
+        if (dateParts.length === 3) {
+          noteDate = year + '-' + dateParts[1] + '-' + dateParts[2];
+        }
+      } else {
+        // Обычная заметка
+        if (noteDate.includes('T')) {
+          noteDate = noteDate.split('T')[0];
+        }
+        if (noteDate.length > 10) {
+          noteDate = noteDate.substring(0, 10);
+        }
+      }
+      
+      const dateParts = noteDate.split('-');
       if (dateParts.length === 3) {
         const noteYear = parseInt(dateParts[0]);
         const noteMonth = parseInt(dateParts[1]) - 1;
         if (noteYear === year && noteMonth === month) {
-          if (!notesMap.has(note.date)) {
-            notesMap.set(note.date, []);
+          if (!notesMap.has(noteDate)) {
+            notesMap.set(noteDate, []);
           }
-          notesMap.get(note.date).push(note);
+          notesMap.get(noteDate).push(note);
         }
       }
     }
   });
-
+  
   const days = [];
-  const todayStr = formatDateYMD(new Date());
-
-  const prevMonthLastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  
+  // Дни предыдущего месяца
+  const prevMonthLastDay = new Date(year, month, 0).getDate();
   for (let i = startWeekday - 1; i >= 0; i--) {
-    const dayDate = new Date(Date.UTC(year, month - 1, prevMonthLastDay - i));
-    const dateStr = formatDateYMD(dayDate);
+    const dayNum = prevMonthLastDay - i;
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
     days.push({
-      day: prevMonthLastDay - i,
-      date: dayDate,
+      day: dayNum,
+      date: new Date(year, month - 1, dayNum),
       dateStr: dateStr,
       isCurrentMonth: false,
       isToday: false,
       notes: [],
     });
   }
-
+  
+  // Дни текущего месяца
   for (let i = 1; i <= daysInMonth; i++) {
-    const dayDate = new Date(Date.UTC(year, month, i));
-    const dateStr = formatDateYMD(dayDate);
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
     const isToday = dateStr === todayStr;
     const dayNotes = notesMap.get(dateStr) || [];
-
+    
     days.push({
       day: i,
-      date: dayDate,
+      date: new Date(year, month, i),
       dateStr: dateStr,
       isCurrentMonth: true,
       isToday,
       notes: dayNotes,
     });
   }
-
+  
+  // Дни следующего месяца
   let remaining = 42 - days.length;
   for (let i = 1; i <= remaining; i++) {
-    const dayDate = new Date(Date.UTC(year, month + 1, i));
-    const dateStr = formatDateYMD(dayDate);
+    const dateStr = `${year}-${String(month + 2).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
     days.push({
       day: i,
-      date: dayDate,
+      date: new Date(year, month + 1, i),
       dateStr: dateStr,
       isCurrentMonth: false,
       isToday: false,
       notes: [],
     });
   }
-
+  
   return days;
 });
+
+
 // Отправка уведомления
 function sendNotificationForNote(note, dateStr) {
   if (!notificationService.hasPermission()) return;
@@ -669,27 +689,35 @@ async function checkTimeReminders() {
 async function createNote() {
   if (!selectedDay.value || !newNoteContent.value.trim()) return;
 
-  const dateToSave = selectedDay.value.dateStr;
-  console.log('Сохраняем дату:', dateToSave);
-
+  let dateToSave = selectedDay.value.dateStr;
+  
+  console.log('=== СОЗДАНИЕ ЗАМЕТКИ ===');
+  console.log('Выбранная дата:', dateToSave);
+  console.log('Повторяющаяся (ежегодно):', newNoteIsRecurring.value);
+  console.log('Тип напоминания:', newNoteReminderType.value);
+  console.log('Время напоминания:', newNoteReminderTime.value);
 
   saving.value = true;
   try {
+    let reminderType = newNoteReminderType.value;
+    let reminderTime = newNoteReminderTime.value;
+    
+    // Если это ежегодная заметка - принудительно ставим monthly
+    if (newNoteIsRecurring.value) {
+      reminderType = 'monthly';
+      reminderTime = newNoteReminderTime.value || '09:00:00';
+    }
+    
     const response = await api.post("/api/calendar/notes", {
       title: newNoteTitle.value.trim() || null,
       content: newNoteContent.value.trim(),
-      date: selectedDay.value.dateStr,
-      reminder_time: newNoteReminderType.value !== 'none' ? newNoteReminderTime.value : null,
-      reminder_type: newNoteReminderType.value,
+      date: dateToSave,
       is_recurring: newNoteIsRecurring.value,
       color: newNoteColor.value,
+      reminder_time: reminderType !== 'none' ? reminderTime : null,
+      reminder_type: reminderType,
     });
     await loadNotes();
-    
-    const todayStr = formatDateYMD(new Date());
-    if (selectedDay.value.dateStr === todayStr && notificationService.hasPermission()) {
-      sendNotificationForNote(response.data, todayStr);
-    }
     
     newNoteTitle.value = "";
     newNoteContent.value = "";
@@ -698,11 +726,7 @@ async function createNote() {
     newNoteReminderTime.value = "";
     newNoteReminderType.value = "none";
 
-    const updatedDay = calendarDays.value.find((d) => d.dateStr === selectedDay.value.dateStr);
-    if (updatedDay) {
-      selectedDay.value = updatedDay;
-    }
-    showToast("Заметка добавлена");
+    showToast(newNoteIsRecurring.value ? "Ежегодная заметка добавлена" : "Заметка добавлена");
     resetToTodayView();
   } catch (error) {
     console.error("Ошибка создания заметки:", error);
@@ -710,8 +734,6 @@ async function createNote() {
   } finally {
     saving.value = false;
   }
-  console.log('Отправляемая дата:', selectedDay.value.dateStr);
-  console.log('Текущая дата (локальная):', formatDateYMD(new Date()));
 }
 
 // Редактирование заметки
@@ -730,13 +752,22 @@ async function updateNote() {
 
   saving.value = true;
   try {
+    let reminderType = editNoteReminderType.value;
+    let reminderTime = editNoteReminderTime.value;
+    
+    // Если это ежегодная заметка - принудительно ставим monthly
+    if (editNoteIsRecurring.value) {
+      reminderType = 'monthly';
+      reminderTime = editNoteReminderTime.value || '09:00:00';
+    }
+    
     await api.put(`/api/calendar/notes/${editingNoteId.value}`, {
       title: editNoteTitle.value.trim() || null,
       content: editNoteContent.value.trim(),
       is_recurring: editNoteIsRecurring.value,
       color: editNoteColor.value,
-      reminder_time: editNoteReminderType.value !== 'none' ? editNoteReminderTime.value : null,
-      reminder_type: editNoteReminderType.value,
+      reminder_time: reminderType !== 'none' ? reminderTime : null,
+      reminder_type: reminderType,
     });
     await loadNotes();
     cancelEdit();
@@ -783,7 +814,28 @@ function cancelEdit() {
 
 // Выбор дня
 function selectDayFromCalendar(day) {
-  selectedDay.value = day;
+  console.log('=== ВЫБОР ДНЯ ===');
+  
+  // Создаём правильную дату из day.day, текущего года и месяца
+  const year = currentYear.value;
+  const month = currentMonth.value;
+  const dayNum = day.day;
+  
+  const correctDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+  const correctDate = new Date(year, month, dayNum);
+  
+  console.log('Выбран день:', correctDateStr);
+  
+  selectedDay.value = {
+    day: dayNum,
+    date: correctDate,
+    dateStr: correctDateStr,
+    isCurrentMonth: day.isCurrentMonth,
+    isToday: day.isToday,
+    notes: day.notes || [],
+    memorableDates: day.memorableDates || []
+  };
+  
   newNoteTitle.value = "";
   newNoteContent.value = "";
   newNoteIsRecurring.value = false;
@@ -794,10 +846,15 @@ function selectDayFromCalendar(day) {
 }
 
 function selectDayFromCard(dateStr) {
-  const day = calendarDays.value.find((d) => d.dateStr === dateStr);
+  // Нормализуем дату
+  const normalizedDateStr = dateStr.split('T')[0];
+  const day = calendarDays.value.find((d) => {
+    const dStr = d.dateStr ? d.dateStr.split('T')[0] : d.dateStr;
+    return dStr === normalizedDateStr;
+  });
   if (day) {
     selectDayFromCalendar(day);
-    const date = new Date(dateStr);
+    const date = new Date(normalizedDateStr);
     currentDate.value = new Date(date.getFullYear(), date.getMonth(), 1);
   }
 }
@@ -820,15 +877,15 @@ function nextMonth() {
 
 function goToToday() {
   const now = new Date();
-  currentDate.value = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+  currentDate.value = new Date(now.getFullYear(), now.getMonth(), 1);
   resetToTodayView();
 }
 
 // Форматирование дат
 function formatDateYMD(date) {
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(date.getUTCDate()).padStart(2, "0");
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 

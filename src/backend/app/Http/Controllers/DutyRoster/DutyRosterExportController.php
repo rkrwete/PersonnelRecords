@@ -197,6 +197,7 @@ class DutyRosterExportController extends Controller
 
     
     // ==================== ОСНОВНОЙ МЕТОД ЭКСПОРТА ====================
+
     public function export($unitId)
     {
         try {
@@ -281,7 +282,7 @@ class DutyRosterExportController extends Controller
             }
 
             $headerStyle = [
-                'font'      => ['bold' => true, 'name' => 'Times New Roman'],
+                'font'      => ['bold' => true, 'name' => 'Times New Roman', 'size' => 11],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
                 'borders'   => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
             ];
@@ -336,17 +337,25 @@ class DutyRosterExportController extends Controller
             $lastRow = $row;
             
             // Применяем шрифт Times New Roman ко всем ячейкам с данными
-            $sheet->getStyle('A7:R' . $lastRow)->getFont()->setName('Times New Roman');
+            $sheet->getStyle('A7:R' . $lastRow)->getFont()->setName('Times New Roman')->setSize(11);
             $sheet->getStyle('A7:R' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle('A7:R' . $lastRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
             $sheet->getStyle('B7:B' . $lastRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
+            
+            // Применяем границы ТОЛЬКО к ячейкам с данными (от A7 до R lastRow)
             $sheet->getStyle('A7:R' . $lastRow)->applyFromArray(['borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]]);
+            
+            // Устанавливаем автоширину для всех колонок, но с небольшим отступом
+            foreach (range('A', 'R') as $col) {
+               $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
 
             // ==================== ЛИСТ 2: ОБОРОТНАЯ СТОРОНА ====================
             $sheet2 = $spreadsheet->createSheet();
             $sheet2->setTitle('Оборотная сторона');
             
             // Применяем шрифт Times New Roman для второго листа
-            $sheet2->getStyle('A1:K100')->getFont()->setName('Times New Roman');
+            $sheet2->getStyle('A1:K100')->getFont()->setName('Times New Roman')->setSize(11);
             
             // Заголовок
             $sheet2->setCellValue('A1', 'СПИСОК ЛИЧНОГО СОСТАВА');
@@ -361,79 +370,109 @@ class DutyRosterExportController extends Controller
             // Заголовки колонок
             $headers2 = ['№ п/п', 'Категория', 'Звание', 'ФИО', 'Причина отсутствия'];
             
-            // ПЕРВАЯ КОЛОНКА (A-E) - 25 строк
-            $col1StartRow = 3;
-            $col1EndRow = 32; // 25 строк (3-27)
+            // --- РАСЧЕТ КОЛИЧЕСТВА СТРОК ДЛЯ КАЖДОЙ КОЛОНКИ ---
+            $personnelList = $reverseData['personnel'];
+            $totalCount = count($personnelList);
             
-            // ВТОРАЯ КОЛОНКА (G-K) - 50 строк
+            // Оставляем 2 строки внизу первой колонки для "По списку:" и "На лицо:"
+            // Всего строк для отображения людей = totalCount
+            // Распределяем между двумя колонками так, чтобы первая была на 4 строки меньше
+            // Но при этом все люди должны поместиться
+            
+            // Максимальное количество строк на странице (высота листа)
+            $maxRows = 60;
+            
+            // Рассчитываем количество строк для второй колонки (она больше на 4 строки)
+            // Общее количество строк для людей + 2 строки для информации
+            $totalRowsNeeded = $totalCount + 2;
+            
+            // Вторая колонка получает большую часть
+            $secondColumnRows = min(ceil($totalRowsNeeded / 2) + 2, $maxRows);
+            // Первая колонка на 4 строки меньше
+            $firstColumnRows = max($secondColumnRows - 4, 0);
+            
+            // Если людей слишком много, увеличиваем количество строк во второй колонке
+            if ($totalCount > $firstColumnRows) {
+                $remainingAfterFirst = $totalCount - $firstColumnRows;
+                if ($remainingAfterFirst > $secondColumnRows) {
+                    // Если не хватает места, добавляем строки
+                    $secondColumnRows = min($remainingAfterFirst, $maxRows);
+                }
+            }
+            
+            // Позиции для колонок
+            $col1StartRow = 3;
             $col2StartRow = 3;
-            $col2EndRow = 52; // 50 строк (3-52)
             
             // Заголовки для первой колонки
             foreach ($headers2 as $i => $header) {
                 $col = chr(65 + $i);
                 $sheet2->setCellValue($col . $col1StartRow, $header);
-                $sheet2->getStyle($col . $col1StartRow)->getFont()->setBold(true)->setName('Times New Roman');
+                $sheet2->getStyle($col . $col1StartRow)->getFont()->setBold(true)->setName('Times New Roman')->setSize(11);
                 $sheet2->getStyle($col . $col1StartRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet2->getColumnDimension($col)->setWidth(15);
+                $sheet2->getStyle($col . $col1StartRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet2->getColumnDimension($col)->setWidth(12);
             }
             
             // Заголовки для второй колонки
             foreach ($headers2 as $i => $header) {
                 $col = chr(71 + $i); // G=71, H=72, I=73, J=74, K=75
                 $sheet2->setCellValue($col . $col2StartRow, $header);
-                $sheet2->getStyle($col . $col2StartRow)->getFont()->setBold(true)->setName('Times New Roman');
+                $sheet2->getStyle($col . $col2StartRow)->getFont()->setBold(true)->setName('Times New Roman')->setSize(11);
                 $sheet2->getStyle($col . $col2StartRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-                $sheet2->getColumnDimension($col)->setWidth(15);
+                $sheet2->getStyle($col . $col2StartRow)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet2->getColumnDimension($col)->setWidth(12);
             }
             
-            // Заполняем ПЕРВУЮ колонку (25 строк)
-            $personnelList = $reverseData['personnel'];
-            $totalCount = count($personnelList);
-            
+            // Заполняем ПЕРВУЮ колонку
             $row1 = $col1StartRow + 1;
             $num1 = 1;
+            $firstColumnDataCount = min($firstColumnRows, $totalCount);
             
-            for ($i = 0; $i < 30 && $i < $totalCount; $i++) {
+            for ($i = 0; $i < $firstColumnDataCount; $i++) {
                 $person = $personnelList[$i];
                 $sheet2->setCellValue('A' . $row1, $num1++);
                 $sheet2->setCellValue('B' . $row1, $person['category']);
                 $sheet2->setCellValue('C' . $row1, $person['rank']);
                 $sheet2->setCellValue('D' . $row1, $person['fio']);
                 $sheet2->setCellValue('E' . $row1, $person['reason']);
-                $sheet2->getStyle('A' . $row1 . ':E' . $row1)->getFont()->setName('Times New Roman');
+                $sheet2->getStyle('A' . $row1 . ':E' . $row1)->getFont()->setName('Times New Roman')->setSize(11);
+                $sheet2->getStyle('A' . $row1 . ':E' . $row1)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
                 $row1++;
             }
             
-            // Заполняем ВТОРУЮ колонку (50 строк)
+            // Заполняем ВТОРУЮ колонку (продолжаем нумерацию)
             $row2 = $col2StartRow + 1;
-            $num2 = 1;
+            $secondColumnDataCount = min($secondColumnRows, $totalCount - $firstColumnDataCount);
             
-            for ($i = 25; $i < 25 + 50 && $i < $totalCount; $i++) {
+            for ($i = $firstColumnDataCount; $i < $firstColumnDataCount + $secondColumnDataCount && $i < $totalCount; $i++) {
                 $person = $personnelList[$i];
-                $sheet2->setCellValue('G' . $row2, $num2++);
+                $sheet2->setCellValue('G' . $row2, $num1++); // Продолжаем нумерацию
                 $sheet2->setCellValue('H' . $row2, $person['category']);
                 $sheet2->setCellValue('I' . $row2, $person['rank']);
                 $sheet2->setCellValue('J' . $row2, $person['fio']);
                 $sheet2->setCellValue('K' . $row2, $person['reason']);
-                $sheet2->getStyle('G' . $row2 . ':K' . $row2)->getFont()->setName('Times New Roman');
+                $sheet2->getStyle('G' . $row2 . ':K' . $row2)->getFont()->setName('Times New Roman')->setSize(11);
+                $sheet2->getStyle('G' . $row2 . ':K' . $row2)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
                 $row2++;
             }
             
             // Информация под первой колонкой
-            $infoRow1 = $col1EndRow + 2;
+            $infoRow1 = $row1 + 1;
             $sheet2->setCellValue('A' . $infoRow1, 'По списку:');
             $sheet2->setCellValue('B' . $infoRow1, $reverseData['total']);
-            $sheet2->getStyle('A' . $infoRow1)->getFont()->setBold(true)->setName('Times New Roman');
-            $sheet2->getStyle('B' . $infoRow1)->getFont()->setName('Times New Roman');
+            $sheet2->getStyle('A' . $infoRow1)->getFont()->setBold(true)->setName('Times New Roman')->setSize(11);
+            $sheet2->getStyle('B' . $infoRow1)->getFont()->setName('Times New Roman')->setSize(11);
+            $sheet2->getStyle('A' . $infoRow1 . ':B' . $infoRow1)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
             
             $infoRow2 = $infoRow1 + 1;
             $sheet2->setCellValue('A' . $infoRow2, 'На лицо:');
             $sheet2->setCellValue('B' . $infoRow2, $reverseData['present']);
-            $sheet2->getStyle('A' . $infoRow2)->getFont()->setBold(true)->setName('Times New Roman');
-            $sheet2->getStyle('B' . $infoRow2)->getFont()->setName('Times New Roman');
+            $sheet2->getStyle('A' . $infoRow2)->getFont()->setBold(true)->setName('Times New Roman')->setSize(11);
+            $sheet2->getStyle('B' . $infoRow2)->getFont()->setName('Times New Roman')->setSize(11);
+            $sheet2->getStyle('A' . $infoRow2 . ':B' . $infoRow2)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
             
-            // Применяем границы для оборотной стороны
+            // Применяем границы для оборотной стороны ТОЛЬКО к ячейкам с данными
             $borderStyle = [
                 'borders' => [
                     'allBorders' => [
@@ -442,23 +481,29 @@ class DutyRosterExportController extends Controller
                 ],
             ];
             
-            // Границы для первой колонки
+            // Границы для первой колонки (от данных после заголовка до последней строки с данными)
             if ($row1 > $col1StartRow + 1) {
                 $sheet2->getStyle('A' . ($col1StartRow + 1) . ':E' . ($row1 - 1))->applyFromArray($borderStyle);
             }
             
-            // Границы для второй колонки
+            // Границы для второй колонки (от данных после заголовка до последней строки с данными)
             if ($row2 > $col2StartRow + 1) {
                 $sheet2->getStyle('G' . ($col2StartRow + 1) . ':K' . ($row2 - 1))->applyFromArray($borderStyle);
+            }
+            
+            // Границы для информации под первой колонкой
+            if ($infoRow2 >= $infoRow1) {
+                $sheet2->getStyle('A' . $infoRow1 . ':B' . $infoRow2)->applyFromArray($borderStyle);
             }
             
             // Центрирование номеров
             $sheet2->getStyle('A' . ($col1StartRow + 1) . ':A' . ($row1 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet2->getStyle('G' . ($col2StartRow + 1) . ':G' . ($row2 - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             
-            // Автоширина для всех колонок
+            // Автоширина для всех колонок оборотной стороны с небольшим отступом
             foreach (range('A', 'K') as $col) {
                 $sheet2->getColumnDimension($col)->setAutoSize(true);
+                $sheet2->getColumnDimension($col)->setWidth($sheet2->getColumnDimension($col)->getWidth() + 2);
             }
             
             // ==================== СОХРАНЕНИЕ И ОТДАЧА ====================
@@ -482,5 +527,4 @@ class DutyRosterExportController extends Controller
             ], 500);
         }
     }
-
 }

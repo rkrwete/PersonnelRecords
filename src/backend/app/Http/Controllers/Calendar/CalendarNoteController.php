@@ -15,7 +15,22 @@ class CalendarNoteController extends Controller
             ->orderBy('date', 'desc')
             ->orderBy('reminder_time', 'asc')
             ->get();
-
+        
+        $currentYear = now()->year;
+        
+        $notes = $notes->map(function($note) use ($currentYear) {
+            // Если это повторяющаяся заметка (is_recurring = true)
+            if ($note->is_recurring) {
+                // Извлекаем месяц и день из даты
+                $dateParts = explode('-', $note->date);
+                if (count($dateParts) === 3) {
+                    // Заменяем год на текущий, оставляем месяц и день
+                    $note->date = $currentYear . '-' . $dateParts[1] . '-' . $dateParts[2];
+                }
+            }
+            return $note;
+        });
+        
         return response()->json($notes);
     }
 
@@ -25,19 +40,21 @@ class CalendarNoteController extends Controller
             'title' => 'nullable|string|max:255',
             'content' => 'required|string|max:5000',
             'date' => 'required|string',
-            'reminder_time' => 'nullable|string',
-            'reminder_type' => 'nullable|in:none,once,daily,weekly,monthly',
             'is_recurring' => 'boolean',
             'color' => 'nullable|string|max:20',
+            'reminder_time' => 'nullable|string',
         ]);
         
-        // Преобразуем дату в формат YYYY-MM-DD
-        $date = date('Y-m-d', strtotime($request->date));
+        $date = $request->date;
+        $reminderType = $request->reminder_type ?? 'none';
         
-        // Сохраняем только время HH:MM:SS
-        $reminderTime = null;
-        if ($request->reminder_time && $request->reminder_type !== 'none') {
-            $reminderTime = date('H:i:s', strtotime($request->reminder_time));
+        // Если это повторяющаяся заметка, устанавливаем reminder_type = 'monthly'
+        if ($request->is_recurring) {
+            $reminderType = 'monthly';
+            // Если дата пришла без года, добавляем текущий
+            if (strlen($date) === 5 && strpos($date, '-') !== false) {
+                $date = now()->year . '-' . $date;
+            }
         }
         
         $note = CalendarNote::create([
@@ -45,10 +62,10 @@ class CalendarNoteController extends Controller
             'title' => $request->title,
             'content' => $request->content,
             'date' => $date,
-            'reminder_time' => $reminderTime,
-            'reminder_type' => $request->reminder_type ?? 'none',
             'is_recurring' => $request->is_recurring ?? false,
             'color' => $request->color ?? '#2196F3',
+            'reminder_time' => $request->reminder_time,
+            'reminder_type' => $reminderType,
             'is_notification_sent' => false,
         ]);
         
@@ -60,24 +77,35 @@ class CalendarNoteController extends Controller
         $request->validate([
             'title' => 'nullable|string|max:255',
             'content' => 'required|string|max:5000',
-            'reminder_time' => 'nullable|date_format:H:i',
-            'reminder_type' => 'nullable|in:none,once,daily,weekly,monthly',
+            'date' => 'required|string',
             'is_recurring' => 'boolean',
             'color' => 'nullable|string|max:20',
+            'reminder_time' => 'nullable|string',
         ]);
 
         $note = CalendarNote::where('id', $id)
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
+        $date = $request->date;
+        $reminderType = $request->reminder_type ?? 'none';
+        
+        if ($request->is_recurring) {
+            $reminderType = 'monthly';
+            if (strlen($date) === 5 && strpos($date, '-') !== false) {
+                $date = now()->year . '-' . $date;
+            }
+        }
+
         $note->update([
             'title' => $request->title,
             'content' => $request->content,
-            'reminder_time' => $request->reminder_time,
-            'reminder_type' => $request->reminder_type ?? $note->reminder_type,
-            'is_recurring' => $request->is_recurring ?? $note->is_recurring,
+            'date' => $date,
+            'is_recurring' => $request->is_recurring ?? false,
             'color' => $request->color ?? $note->color,
-            'is_notification_sent' => false, // Сбрасываем флаг при обновлении
+            'reminder_time' => $request->reminder_time,
+            'reminder_type' => $reminderType,
+            'is_notification_sent' => false,
         ]);
 
         return response()->json($note);
@@ -100,41 +128,43 @@ class CalendarNoteController extends Controller
         $currentTime = $now->format('H:i');
         $today = $now->format('Y-m-d');
         
-        $notes = CalendarNote::where('reminder_type', 'once')
+        $notes = CalendarNote::where('reminder_type', '!=', 'none')
             ->where('is_notification_sent', false)
             ->get();
         
-        $debug = [];
         $reminders = [];
         
         foreach ($notes as $note) {
             $noteTime = date('H:i', strtotime($note->reminder_time));
-            $noteDate = date('Y-m-d', strtotime($note->date));
+            $shouldNotify = false;
             
-            $match = ($noteTime === $currentTime && $noteDate === $today);
+            if ($note->is_recurring) {
+                // Для ежегодных: проверяем месяц и день (год игнорируем)
+                $noteMonth = date('m', strtotime($note->date));
+                $noteDay = date('d', strtotime($note->date));
+                $todayMonth = $now->format('m');
+                $todayDay = $now->format('d');
+                
+                if ($noteMonth === $todayMonth && $noteDay === $todayDay && $noteTime === $currentTime) {
+                    $shouldNotify = true;
+                }
+            } elseif ($note->reminder_type === 'once') {
+                // Одноразовая: проверяем полную дату
+                $noteDate = date('Y-m-d', strtotime($note->date));
+                if ($noteDate === $today && $noteTime === $currentTime) {
+                    $shouldNotify = true;
+                }
+            } elseif ($note->reminder_type === 'daily') {
+                if ($noteTime === $currentTime) {
+                    $shouldNotify = true;
+                }
+            }
             
-            $debug[] = [
-                'id' => $note->id,
-                'note_time' => $noteTime,
-                'current_time' => $currentTime,
-                'time_match' => ($noteTime === $currentTime),
-                'note_date' => $noteDate,
-                'current_date' => $today,
-                'date_match' => ($noteDate === $today),
-                'both_match' => $match
-            ];
-            
-            if ($match) {
+            if ($shouldNotify) {
                 $reminders[] = $note;
             }
         }
         
-        return response()->json([
-            'current_server_time' => $now->format('H:i:s'),
-            'current_date' => $today,
-            'current_time' => $currentTime,
-            'debug' => $debug,
-            'reminders' => $reminders
-        ]);
+        return response()->json($reminders);
     }
 }

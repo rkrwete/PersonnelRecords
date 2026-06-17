@@ -14,36 +14,16 @@
         <span v-else class="notifications-enabled" title="Уведомления включены">
           🔔 Уведомления активны
         </span>
-        
-        <button 
-          v-if="isDevMode && notificationsEnabled" 
-          class="test-notifications-btn"
-          @click="startTestNotifications"
-          title="Тестовые уведомления каждые 5 секунд"
-        >
-          🧪 Тест уведомлений
-        </button>
-        <button 
-          v-if="isTestRunning" 
-          class="stop-test-btn"
-          @click="stopTestNotifications"
-          title="Остановить тест"
-        >
-          ⏹️ Остановить тест
-        </button>
       </div>
     </div>
   </header>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import notificationService from '../services/notificationService.js';
 
 const notificationsEnabled = ref(false);
-const isDevMode = ref(import.meta.env.DEV);
-const isTestRunning = ref(false);
-let testInterval = null;
 
 onMounted(async () => {
   const permissionStatus = notificationService.getPermissionStatus();
@@ -63,58 +43,9 @@ async function enableNotifications() {
       icon: '/favicon.ico'
     });
   } else {
-    alert('Не удалось включить уведомления.\n\nПожалуйста, разрешите уведомления в настройках браузера:\n\n1. Нажмите на значок замка 🔒 слева от адресной строки\n2. Найдите "Уведомления" в списке\n3. Выберите "Разрешить"\n4. Обновите страницу');
+    alert('Не удалось включить уведомления. Разрешите уведомления в настройках браузера.');
   }
 }
-
-function startTestNotifications() {
-  if (!notificationsEnabled.value) {
-    alert('Сначала включите уведомления!');
-    return;
-  }
-  
-  isTestRunning.value = true;
-  
-  notificationService.sendNotification('🧪 Тест уведомлений запущен', {
-    body: 'Уведомления будут приходить каждые 5 секунд',
-    icon: '/favicon.ico'
-  });
-  
-  let counter = 1;
-  testInterval = setInterval(() => {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString();
-    
-    notificationService.sendNotification(`🧪 Тестовое уведомление #${counter}`, {
-      body: `Время: ${timeStr}\nУведомления работают корректно!`,
-      icon: '/favicon.ico',
-      tag: `test-${counter}`,
-      onClick: () => {
-        console.log(`Тестовое уведомление #${counter} было нажато`);
-      }
-    });
-    counter++;
-  }, 5000);
-}
-
-function stopTestNotifications() {
-  if (testInterval) {
-    clearInterval(testInterval);
-    testInterval = null;
-  }
-  isTestRunning.value = false;
-  
-  notificationService.sendNotification('🧪 Тест уведомлений остановлен', {
-    body: 'Уведомления больше не будут приходить',
-    icon: '/favicon.ico'
-  });
-}
-
-onUnmounted(() => {
-  if (testInterval) {
-    clearInterval(testInterval);
-  }
-});
 </script>
 
 <style scoped>
@@ -181,40 +112,6 @@ onUnmounted(() => {
   font-family: "Tektur", sans-serif;
 }
 
-.test-notifications-btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: none;
-  cursor: pointer;
-  background: #ff9800;
-  color: white;
-  font-size: 14px;
-  font-family: "Tektur", sans-serif;
-  transition: all 0.3s ease;
-}
-
-.test-notifications-btn:hover {
-  background: #f57c00;
-  transform: translateY(-2px);
-}
-
-.stop-test-btn {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: none;
-  cursor: pointer;
-  background: #f44336;
-  color: white;
-  font-size: 14px;
-  font-family: "Tektur", sans-serif;
-  transition: all 0.3s ease;
-}
-
-.stop-test-btn:hover {
-  background: #d32f2f;
-  transform: translateY(-2px);
-}
-
 @media (max-width: 768px) {
   .calendar-header {
     padding: 12px 16px;
@@ -225,9 +122,7 @@ onUnmounted(() => {
   }
   
   .enable-notifications-btn,
-  .notifications-enabled,
-  .test-notifications-btn,
-  .stop-test-btn {
+  .notifications-enabled {
     padding: 4px 10px;
     font-size: 10px;
   }

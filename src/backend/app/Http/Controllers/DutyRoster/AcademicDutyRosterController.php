@@ -10,6 +10,7 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\Font;
 
 class AcademicDutyRosterController extends Controller
 {
@@ -28,6 +29,8 @@ class AcademicDutyRosterController extends Controller
     private function setVerticalText($sheet, string $cell): void
     {
         $sheet->getStyle($cell)->getAlignment()->setTextRotation(90);
+        $sheet->getStyle($cell)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle($cell)->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
     }
 
     private function getPersonnelByCategory(Unit $unit, $category): \Illuminate\Support\Collection
@@ -169,53 +172,107 @@ class AcademicDutyRosterController extends Controller
     private function createAbsentSheet($spreadsheet, array $allAbsentList, string $academyName): void
     {
         $sheet2 = $spreadsheet->createSheet();
-        $sheet2->setTitle('Отсутствующие');
-
+        $sheet2->setTitle('Оборотная сторона');
+        
+        // Заголовок
         $sheet2->setCellValue('A1', 'СПИСОК ОТСУТСТВУЮЩЕГО ЛИЧНОГО СОСТАВА');
-        $sheet2->mergeCells('A1:E1');
+        $sheet2->mergeCells('A1:E2');
         $sheet2->getStyle('A1')->getFont()->setBold(true)->setSize(14);
         $sheet2->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-        $sheet2->setCellValue('A2', $academyName);
-        $sheet2->mergeCells('A2:E2');
-        $sheet2->getStyle('A2')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        $sheet2->setCellValue('A3', $academyName);
+        $sheet2->mergeCells('A3:E3');
+        $sheet2->getStyle('A3')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
+        // Заголовки колонок для первой колонки (A-E)
         $headers2 = ['№ п/п', 'Воинское звание', 'ФИО', 'Категория', 'Причина отсутствия'];
+        $headerRow = 4;
 
         foreach ($headers2 as $i => $header) {
             $col = chr(65 + $i);
-            $sheet2->setCellValue($col . '4', $header);
-            $sheet2->getStyle($col . '4')->getFont()->setBold(true);
-            $sheet2->getStyle($col . '4')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            $sheet2->getColumnDimension($col)->setAutoSize(true);
+            $sheet2->setCellValue($col . $headerRow, $header);
+            $sheet2->getStyle($col . $headerRow)->getFont()->setBold(true);
+            $sheet2->getStyle($col . $headerRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getColumnDimension($col)->setWidth(15);
         }
 
-        $row2 = 5;
-        $num2 = 1;
+        // Заголовки колонок для второй колонки (G-K)
+        foreach ($headers2 as $i => $header) {
+            $col = chr(71 + $i); // G=71, H=72, I=73, J=74, K=75
+            $sheet2->setCellValue($col . $headerRow, $header);
+            $sheet2->getStyle($col . $headerRow)->getFont()->setBold(true);
+            $sheet2->getStyle($col . $headerRow)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet2->getColumnDimension($col)->setWidth(15);
+        }
 
+        // Заполняем данными в две колонки
+        $totalCount = count($allAbsentList);
+        
         if (empty($allAbsentList)) {
+            $row2 = $headerRow + 1;
             $sheet2->setCellValue('A' . $row2, 'Все военнослужащие находятся в строю');
             $sheet2->mergeCells('A' . $row2 . ':E' . $row2);
             $sheet2->getStyle('A' . $row2)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet2->getStyle('A' . $row2)->getFont()->setItalic(true)->getColor()->setRGB('808080');
         } else {
-            foreach ($allAbsentList as $absent) {
-                $sheet2->setCellValue('A' . $row2, $num2++);
-                $sheet2->setCellValue('B' . $row2, $absent['rank'] ?: '—');
-                $sheet2->setCellValue('C' . $row2, $absent['fio'] ?: '—');
-                $sheet2->setCellValue('D' . $row2, $absent['category'] ?: '—');
-                $sheet2->setCellValue('E' . $row2, $absent['reason'] ?: '—');
+            $firstColumnRows = ceil($totalCount / 2);
+            
+            // Заполняем первую колонку (A-E)
+            $row1 = $headerRow + 1;
+            $num1 = 1;
+            
+            for ($i = 0; $i < $firstColumnRows && $i < $totalCount; $i++) {
+                $absent = $allAbsentList[$i];
+                $sheet2->setCellValue('A' . $row1, $num1++);
+                $sheet2->setCellValue('B' . $row1, $absent['rank'] ?: '—');
+                $sheet2->setCellValue('C' . $row1, $absent['fio'] ?: '—');
+                $sheet2->setCellValue('D' . $row1, $absent['category'] ?: '—');
+                $sheet2->setCellValue('E' . $row1, $absent['reason'] ?: '—');
+                $row1++;
+            }
+            
+            // Заполняем вторую колонку (G-K) - продолжаем нумерацию
+            $row2 = $headerRow + 1;
+            
+            for ($i = $firstColumnRows; $i < $totalCount; $i++) {
+                $absent = $allAbsentList[$i];
+                $sheet2->setCellValue('G' . $row2, $num1++); // Продолжаем нумерацию
+                $sheet2->setCellValue('H' . $row2, $absent['rank'] ?: '—');
+                $sheet2->setCellValue('I' . $row2, $absent['fio'] ?: '—');
+                $sheet2->setCellValue('J' . $row2, $absent['category'] ?: '—');
+                $sheet2->setCellValue('K' . $row2, $absent['reason'] ?: '—');
                 $row2++;
             }
 
-            $sheet2->getStyle('A4:E' . ($row2 - 1))->applyFromArray([
-                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
-            ]);
+            // Применяем границы для первой колонки
+            if ($row1 > $headerRow + 1) {
+                $sheet2->getStyle('A' . ($headerRow + 1) . ':E' . ($row1 - 1))->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
+                ]);
+            }
+            
+            // Применяем границы для второй колонки
+            if ($row2 > $headerRow + 1) {
+                $sheet2->getStyle('G' . ($headerRow + 1) . ':K' . ($row2 - 1))->applyFromArray([
+                    'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
+                ]);
+            }
+
+            // Центрирование номеров в первой колонке
+            $sheet2->getStyle('A' . ($headerRow + 1) . ':A' . ($row1 - 1))
+                ->getAlignment()
+                ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                
+            // Центрирование номеров во второй колонке
+            $sheet2->getStyle('G' . ($headerRow + 1) . ':G' . ($row2 - 1))
+                ->getAlignment()
+                ->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 
-        $sheet2->getStyle('A5:A' . ($row2 - 1))
-            ->getAlignment()
-            ->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        // Автоширина для всех колонок
+        foreach (range('A', 'K') as $col) {
+            $sheet2->getColumnDimension($col)->setAutoSize(true);
+        }
     }
 
     private function collectAllAbsentList(array $stats): array
@@ -289,7 +346,12 @@ class AcademicDutyRosterController extends Controller
             }
             $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex) . '4', 'Итого');
 
-            // Подзаголовки
+            // Объединение ячеек для "пост." и "перем."
+            $sheet->mergeCells('C4:D4');
+            $sheet->mergeCells('E4:F4');
+            $sheet->mergeCells('G4:H4');
+
+            // Подзаголовки - теперь все вертикальные
             $sheet->setCellValue('C5', 'пост.');
             $sheet->setCellValue('D5', 'перем.');
             $sheet->setCellValue('E5', 'пост.');
@@ -297,23 +359,49 @@ class AcademicDutyRosterController extends Controller
             $sheet->setCellValue('G5', 'пост.');
             $sheet->setCellValue('H5', 'перем.');
 
+            // Применяем вертикальную ориентацию для основных подзаголовков
+            $this->setVerticalText($sheet, 'C5');
+            $this->setVerticalText($sheet, 'D5');
+            $this->setVerticalText($sheet, 'E5');
+            $this->setVerticalText($sheet, 'F5');
+            $this->setVerticalText($sheet, 'G5');
+            $this->setVerticalText($sheet, 'H5');
+
             $colIndex = 9;
             foreach ($this->service->getAbsentStatuses() as $status) {
                 $col = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex);
+                $colNext = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1);
+                $colTotal = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 2);
+                
                 $sheet->setCellValue($col . '5', 'пост.');
-                $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1) . '5', 'перем.');
-                $sheet->setCellValue(\PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 2) . '5', 'всего');
+                $sheet->setCellValue($colNext . '5', 'перем.');
+                $sheet->setCellValue($colTotal . '5', 'всего');
 
-                // Вертикальная ориентация
+                // Вертикальная ориентация для подзаголовков статусов
                 $this->setVerticalText($sheet, $col . '5');
-                $this->setVerticalText($sheet, \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colIndex + 1) . '5');
+                $this->setVerticalText($sheet, $colNext . '5');
+                $this->setVerticalText($sheet, $colTotal . '5');
+                
                 $colIndex += 3;
             }
 
-            // Объединение ячеек
-            $sheet->mergeCells('C4:D4');
-            $sheet->mergeCells('E4:F4');
-            $sheet->mergeCells('G4:H4');
+            // Стили для шапки
+            $lastColIndex = $colIndex;
+            $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastColIndex);
+
+            // Применяем стили к шапке
+            $sheet->getStyle('A4:' . $lastCol . '5')->applyFromArray([
+                'font' => ['bold' => true],
+                'alignment' => [
+                    'horizontal' => Alignment::HORIZONTAL_CENTER,
+                    'vertical' => Alignment::VERTICAL_CENTER
+                ],
+                'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
+            ]);
+
+            $sheet->getStyle('A4:' . $lastCol . '5')->getFill()
+                ->setFillType(Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('D3D3D3');
 
             // Данные
             $row = 6;
@@ -332,23 +420,16 @@ class AcademicDutyRosterController extends Controller
             $this->fillRows($sheet, $stats, $row, $num, $academyTotals);
             $this->addTotalRow($sheet, $row, $academyTotals);
 
-            // Стили
-            $lastColIndex = $colIndex;
-            $lastCol = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($lastColIndex);
-
-            $sheet->getStyle('A4:' . $lastCol . $row)->applyFromArray([
+            // Применяем стили к данным
+            $sheet->getStyle('A6:' . $lastCol . $row)->applyFromArray([
                 'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]]
             ]);
-
-            $sheet->getStyle('A4:' . $lastCol . '5')->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setRGB('D3D3D3');
 
             $sheet->getStyle('A' . $row . ':' . $lastCol . $row)->getFont()->setBold(true);
             $sheet->getStyle('B6:B' . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_LEFT);
             $sheet->getStyle('C6:' . $lastCol . ($row - 1))->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
 
-            // Автоширина
+            // Ширина колонок
             $sheet->getColumnDimension('A')->setWidth(8);
             $sheet->getColumnDimension('B')->setWidth(35);
             for ($i = 3; $i <= $lastColIndex; $i++) {
@@ -356,7 +437,7 @@ class AcademicDutyRosterController extends Controller
                 $sheet->getColumnDimension($col)->setWidth(6);
             }
 
-            // Оборотная сторона
+            // Оборотная сторона (список отсутствующих в две колонки)
             $this->createAbsentSheet($spreadsheet, $allAbsentList, $academy->name);
 
             // Сохраняем
